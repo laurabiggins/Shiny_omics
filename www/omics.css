@@ -1,0 +1,40 @@
+
+.plot_panel{
+  border: 3px solid #888;
+}
+
+#gene_expr_panel {
+  background-color: #6BDBD0;
+}
+
+#prot_acid_panel {
+  background-color: #F8EB8C;
+}
+
+#prot_chromatin_panel {
+  background-color: #ADD3FF;
+}
+
+#histone_panel {
+  background-color: #EE6C4D;
+}
+
+.checkbox {
+  margin-top: 2px;
+  margin-bottom: -25px;
+}
+
+.panel_title {
+  margin-top: 0px;
+}
+
+/* extra colour - purple
+#7B6D8D */
+
+.inner_plot_panel {
+  padding: 0;
+}
+
+.plot_box {
+  padding: 0;
+}
