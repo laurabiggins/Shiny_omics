@@ -110,7 +110,7 @@ Restricts Naive Human Pluripotent Stem Cell to Trophoblast Fate Induction"),
 
 key <- row.names(volcano_dataset)
 
-server <- function(input, output) {
+server <- function(input, output, session) {
     
     table_proxy <- dataTableProxy("pp_table")
     
@@ -151,65 +151,58 @@ server <- function(input, output) {
         
     })
     
-    observeEvent(input$clear_table, {
+  # observeEvents ----
+    
+  observeEvent(input$clear_table, {
+      selectRows(table_proxy, selected = NULL)
+      selected_ids(NULL)
+  })
+  
+  observeEvent(input$select_all_plots, {
+      
+    if(input$select_all_plots) {
+      updateCheckboxGroupInput(session, "plot_panels_to_display", selected = datatypes)
+    } else {
+      updateCheckboxGroupInput(session, "plot_panels_to_display", selected = "")
+    }
+  })
+    
+  ## table row selections ----
+  observeEvent(input$pp_table_rows_selected, {
+      
+    row_numbers <- as.numeric(input$pp_table_rows_selected)
+    
+    print("updating selected rows")
+    
+    if(length(row_numbers) > 4){
+      shinyalert::shinyalert(title = "", text = "Maximum of 4 rows of data will be shown.")
+      row_numbers <- row_numbers[1:4]
+    } 
+    selected_ids(
+      slice(table_data, row_numbers) %>%
+      pull(Accession)
+    )
+  })
+    
+  ## update highlighted rows on table ----
+  observeEvent(selected_ids(), ignoreNULL = FALSE, {
+  
+    if(length(selected_ids()) != length(input$pp_table_rows_selected)){
+      print("discrepancy in selections!!")
+  
+      if(is.null(selected_ids())) {
         selectRows(table_proxy, selected = NULL)
-        selected_ids(NULL)
-    })
+      } else {
+        selected_table_rows <- table_data %>%
+          filter(Accession %in% selected_ids()) %>%
+          pull(rowid)
+        selectRows(table_proxy, selected = selected_table_rows)
+      }
+    }
+  })
     
-    observeEvent(input$select_all_plots, {
-        
-        print("observed")
-        
-        if(input$select_all_plots) {
-            updateCheckboxGroupInput(
-                inputId = "plot_panels_to_display",
-                selected = datatypes
-            )
-        } else {
-            print("FALSE, do something")
-            updateCheckboxGroupInput(
-                inputId = "plot_panels_to_display",
-                selected = ""
-            )
-        }
-        
-    })
     
-    observeEvent(input$pp_table_rows_selected, {
-        
-        row_numbers <- as.numeric(input$pp_table_rows_selected)
-        
-        print("updating selected rows")
-        
-        if(length(row_numbers) > 4){
-            shinyalert::shinyalert(
-                title = "",
-                text = "Maximum of 4 rows of data will be shown.")
-            row_numbers <- row_numbers[1:4]
-        } 
-        selected_ids(
-            table_data %>%
-                slice(row_numbers) %>%
-                pull(Accession)
-        )
-    })
-    
-    # update highlighted rows on table
-    observeEvent(selected_ids(), ignoreNULL = FALSE, {
-        
-        if(length(selected_ids()) != length(input$pp_table_rows_selected)){
-            print("discrepancy in selections!!")
-        
-            if(is.null(selected_ids())) {
-                selectRows(table_proxy, selected = NULL)
-            } else {
-                selected_table_rows <- table_data %>%
-                    filter(Accession %in% selected_ids()) %>%
-                    pull(rowid)
-                selectRows(table_proxy, selected = selected_table_rows)
-            }
-        }
-    })
+    # plotly events ----
     
     observeEvent(event_data("plotly_doubleclick"), {
         print("double_clicked")
@@ -259,187 +252,66 @@ server <- function(input, output) {
         selected_ids(NULL)
         #selectRows(table_proxy, selected = NULL)
     })
+  
+  # plot panels -----
+  output$gene_expr <- renderUI({
     
+    req(selected_ids())
+    gene_exprUI <- mod_plotsUI("gene_expr_panel")
+    mod_plotsServer("gene_expr_panel", filtered_dataset,  selected_ids, plot_colours)
     
-    output$protein1 <- renderUI({
-            
-        if(is.null(selected_ids())) tags <- NULL
-        
-        req(selected_ids())
-        
-        if(length(selected_ids()) > 4){
-            tags <- NULL
-        }
-        
-        if(length(selected_ids()) == 1){
-            tags <- tagList(
-                plotOutput("prot1", height = acid_plot_height)
-            )
-        } else if (length(selected_ids()) == 2){
-            tags <- tagList(
-                splitLayout(
-                    plotOutput("prot1", height = acid_plot_height),
-                    plotOutput("prot2", height = acid_plot_height)
-                )
-            )
-        } else if (length(selected_ids()) == 3){
-            tags <- tagList(
-                fluidRow(
-                    column(width = 6, plotOutput("prot1", height = acid_plot_height)),
-                    column(width = 6, plotOutput("prot2", height = acid_plot_height))
-                ),
-                br(),
-                fluidRow(
-                    column(width = 6, plotOutput("prot3", height = acid_plot_height))
-                )
-            )
-        } else if (length(selected_ids()) == 4){
-            tags <- tagList(
-                fluidRow(
-                    column(width = 6, plotOutput("prot1", height = acid_plot_height)),
-                    column(width = 6, plotOutput("prot2", height = acid_plot_height))
-                ),
-                br(),
-                fluidRow(
-                    column(width = 6, plotOutput("prot3", height = acid_plot_height)),
-                    column(width = 6, plotOutput("prot4", height = acid_plot_height))
-                )
-            )
-        }
-        wellPanel(id = "prot_acid_panel", 
-                  class = "plot_panel",
-                  h2("Acid extractome protein abundance", class = "panel_title"),
-                  tags)
-    })
+    wellPanel(
+      id = "gene_expr_panel", 
+      class = "plot_panel",
+      h2("Gene expression", class = "panel_title"),
+      gene_exprUI
+    )
+  }) 
     
+  output$protein1 <- renderUI({
+      
+    req(selected_ids())
+    protein1UI <- mod_plotsUI("protein1_panel")
+    mod_plotsServer("protein1_panel", filtered_dataset,  selected_ids, plot_colours)
+  
+    wellPanel(
+      id = "prot_acid_panel", 
+      class = "plot_panel",
+      h2("Acid extractome protein abundance", class = "panel_title"),
+      protein1UI
+    )
+  })
     
-    output$protein_second <- renderUI({
-        
-        req(selected_ids())
-        
-        protein2UI <- mod_plotsUI("protein2_panel")
-        
-        mod_plotsServer(
-            "protein2_panel",
-            filtered_dataset, 
-            selected_ids,
-            plot_colours
-        )
-        
-        wellPanel(
-            id = "prot_chromatin_panel", 
-            class = "plot_panel",
-            h2("Chromatin protein abundance", class = "panel_title"),
-            protein2UI
-        )
-        
-    })
+  output$protein_second <- renderUI({
     
-       
-    output$gene_expr <- renderUI({
-        
-        req(selected_ids())
-        
-        gene_exprUI <- mod_plotsUI("gene_expr_panel")
-        
-        mod_plotsServer(
-            "gene_expr_panel",
-            filtered_dataset, 
-            selected_ids,
-            plot_colours
-        )
-        
-        wellPanel(
-            id = "gene_expr_panel", 
-            class = "plot_panel",
-            h2("Gene expression", class = "panel_title"),
-            gene_exprUI
-        )
-    })
+    req(selected_ids())
+    protein2UI <- mod_plotsUI("protein2_panel")
+    mod_plotsServer("protein2_panel", filtered_dataset, selected_ids, plot_colours)
     
-    output$histones <- renderUI({
-        
-        req(selected_ids())
-        
-        histoneUI <- mod_plotsUI("histone_panel")
-        
-        mod_plotsServer(
-            "histone_panel",
-            filtered_dataset, 
-            selected_ids,
-            plot_colours
-        )
-        
-        wellPanel(
-            id = "histone_panel", 
-            class = "plot_panel",
-            h2("Histone abundance", class = "panel_title"),
-            histoneUI
-        )
-        
-    })
-        
-
-    ## protein acid plots ----
-    acid_boxplot <- function(data, title, box_colour){
-        
-        ggplot(data, aes(x = condition, y = value)) +
-            geom_boxplot(fill = box_colour) +
-            xlab("") +
-            ggtitle(title)
-        
-    }
+    wellPanel(
+      id = "prot_chromatin_panel", 
+      class = "plot_panel",
+      h2("Chromatin protein abundance", class = "panel_title"),
+      protein2UI
+    )
+  })
     
-    output$prot1 <- renderPlot({
-        id <- selected_ids()[1]
-        req(id)
-        
-        data_long %>%
-            filter(Accession == id) %>%
-            filter(condition %in% input$conditions_to_display) %>%
-            ggplot(aes(x = condition, y = value)) +
-                geom_boxplot(fill = plot_colours[1])
-    })
+  output$histones <- renderUI({
     
-    output$prot2 <- renderPlot({
-        
-        req(selected_ids()[2])
-        #id <- dataset[["Accession"]][selected_ids()[2]]
-        id <- selected_ids()[2]
-        
-        data_filt <- data_long %>%
-            filter(Accession == id) %>%
-            filter(condition %in% input$conditions_to_display) # could extract this but leave for now
-        
-        acid_boxplot(data_filt, id, plot_colours[2])
-        
-    })
+    req(selected_ids())
+    histoneUI <- mod_plotsUI("histone_panel")
+    mod_plotsServer("histone_panel", filtered_dataset,  selected_ids, plot_colours)
     
-    output$prot3 <- renderPlot({
-        
-        req(selected_ids()[3])
-        id <- selected_ids()[3]
-        
-        data_filt <- data_long %>%
-            filter(Accession == id) %>%
-            filter(condition %in% input$conditions_to_display) # could extract this but leave for now
-        
-        acid_boxplot(data_filt, id, plot_colours[3])
-    })
+    wellPanel(
+      id = "histone_panel", 
+      class = "plot_panel",
+      h2("Histone abundance", class = "panel_title"),
+      histoneUI
+    )
     
-    output$prot4 <- renderPlot({
+  })
         
-        req(selected_ids()[4])
-        id <- selected_ids()[4]
-        
-        data_filt <- data_long %>%
-            filter(Accession == id) %>%
-            filter(condition %in% input$conditions_to_display) # could extract this but leave for now
-        
-        acid_boxplot(data_filt, id, plot_colours[4])
-    })
-    
-    observeEvent(input$browser, browser())
+  observeEvent(input$browser, browser())
     
 }
 

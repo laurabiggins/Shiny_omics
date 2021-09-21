@@ -4,17 +4,12 @@ mod_plotsUI <- function(id){
   ns <- NS(id)
   
   tagList(
-    #wellPanel(
-    #  id = ns("panel"),
       uiOutput(ns("plot_panel"), class = "plot_box"),
-      #plotOutput(outputId = ns("plot1"), height = plot_height),
-      #actionButton("browser", "browser")
-   # )
   )  
       
 }
 
-mod_plotsServer <- function(id, data_long, selected_ids, plot_colours, plot_height = "250px") {
+mod_plotsServer <- function(id, data_long, selected_ids, plot_colours, plot_height = "200px") {
   moduleServer(id, function(input, output, session) {
     
     ns_server <- NS(id)
