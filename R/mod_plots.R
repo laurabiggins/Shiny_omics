@@ -16,6 +16,9 @@ mod_plotsServer <- function(id, data_long, selected_ids, plot_colours, plot_heig
 
     observeEvent(input$browser, browser())
     
+   # data_initial_filt <- reactive(filter(data_long(), Accession %in% selected_ids()))
+
+    
     output$plot_panel <- renderUI({
       
       ids <- selected_ids()
@@ -85,7 +88,8 @@ mod_plotsServer <- function(id, data_long, selected_ids, plot_colours, plot_heig
       
       acid_boxplot(data_filt, id, plot_colours[1])
         
-    })
+    }) %>% bindCache(selected_ids()[1])#, data_long()) # could probably pass the name of the dataset - would be 
+    # more efficient to compare than the whole dataset
     
     output$plot2 <- renderPlot({
       
@@ -97,7 +101,7 @@ mod_plotsServer <- function(id, data_long, selected_ids, plot_colours, plot_heig
       
       acid_boxplot(data_filt, id, plot_colours[2])
       
-    })
+    }) %>% bindCache(selected_ids()[2], data_long())
     
     output$plot3 <- renderPlot({
       
@@ -108,7 +112,7 @@ mod_plotsServer <- function(id, data_long, selected_ids, plot_colours, plot_heig
         filter(Accession == id)
       
       acid_boxplot(data_filt, id, plot_colours[3])
-    })
+    }) %>% bindCache(selected_ids()[3], data_long())
     
     output$plot4 <- renderPlot({
       
@@ -119,6 +123,6 @@ mod_plotsServer <- function(id, data_long, selected_ids, plot_colours, plot_heig
         filter(Accession == id)
       
       acid_boxplot(data_filt, id, plot_colours[4])
-    })
+    }) %>% bindCache(selected_ids()[4], data_long())
   })   
 }            
