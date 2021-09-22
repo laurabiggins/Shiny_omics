@@ -4,10 +4,11 @@ library(plotly)
 library(DT)
 
 
-dataset <- readRDS("data/acid_meta.rds") #used for the DT - searching
+dataset <- readRDS("data/meta.rds") #used for the DT - searching
 data_long <- readRDS("data/acid_long.rds")
-#acid_pval_fc <- readRDS("data/acid_pval_fc.rds")
-acid_pval_fc <- readRDS("data/pval_check_temp.rds")
+acid_pval_fc <- readRDS("data/acid_pval_fc.rds")
+genes_long <- readRDS("data/genes_long.rds")
+#acid_pval_fc <- readRDS("data/pval_check_temp.rds")
 
 volcano_dataset <- acid_pval_fc
 
@@ -116,6 +117,8 @@ server <- function(input, output, session) {
     
   table_proxy <- dataTableProxy("pp_table")
   
+  selected_ids <- reactiveVal()
+  
   output$pp_table <- DT::renderDataTable({
     dt_setup(
       dataset,
@@ -125,7 +128,7 @@ server <- function(input, output, session) {
         dom = "ftip", 
         columnDefs = list(
           list(
-            targets = 1,
+            targets = 2,
             width = "600px",
             render = JS(
               "function(data, type, row, meta) {",
@@ -138,8 +141,6 @@ server <- function(input, output, session) {
       )
     )
   })
-  
-  selected_ids <- reactiveVal()
   
   filtered_dataset <- reactive({
     data_long %>%

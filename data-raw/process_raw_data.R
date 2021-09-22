@@ -1,12 +1,21 @@
 library(tidyverse)
-file <- "data-raw/AcidExtractome_Data.txt"
-acid_extractome <- read_tsv(file)
+acid_extractome <- read_tsv("data-raw/AcidExtractome_Data.txt")
 acid_pvals <- read_tsv("data-raw/AcidExtractome_pvals.txt")
+gene_expr <- read_tsv("data-raw/RNAseq_norm_count_matrix.txt")
+
+
+genes_long <- gene_expr %>%
+  pivot_longer(-Gene) %>%
+  separate(name, into = c("condition", "rep"), sep = " ") %>%
+  drop_na()
+
+saveRDS(genes_long, "data/genes_long.rds")
+
 
 acid_long <- acid_extractome %>% 
   pivot_longer(c(-Accession, -Description)) %>%
   separate(name, into = c("condition", "rep"), sep = " ") %>%
-  drop_na
+  drop_na()
 
 fold_change_mean <- acid_long %>%
   filter(condition %in% c("Naive", "Primed")) %>%
@@ -22,9 +31,23 @@ acid_pval_fc <- acid_pvals %>%
   left_join(fold_change_mean)
 
 acid_meta <- acid_extractome %>%
-  select(Accession, Description)
+  select(Accession, Description) %>%
+  separate(Description, sep = "GN=", into = c(NA, "Gene"), remove = FALSE) %>%
+  separate(Gene, sep = " ", into = c("Gene", NA)) %>%
+  select(Accession, Gene, Description) 
 
-saveRDS(acid_meta, "data/acid_meta.rds")
+# add the extra genes in to table
+all_gene_names <- pull(gene_expr, Gene) 
+genes_not_in <- tibble::enframe(all_gene_names[!all_gene_names %in% acid_meta$Gene], name = NULL, value = "Gene")
+
+genes_to_add <- genes_not_in %>%
+  mutate(Accession = "") %>%
+  mutate(Description = "") %>%
+  relocate(Accession) 
+
+meta <- bind_rows(acid_meta, genes_to_add)
+
+saveRDS(meta, "data/meta.rds")
 saveRDS(acid_long, "data/acid_long.rds")
 saveRDS(acid_pval_fc, "data/acid_pval_fc.rds")
 
