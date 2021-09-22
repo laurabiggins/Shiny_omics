@@ -117,7 +117,7 @@ server <- function(input, output, session) {
     
   table_proxy <- dataTableProxy("pp_table")
   
-  selected_ids <- reactiveVal()
+  selected_ids <- reactiveValues()
   
   output$pp_table <- DT::renderDataTable({
     dt_setup(
@@ -142,10 +142,20 @@ server <- function(input, output, session) {
     )
   })
   
-  filtered_dataset <- reactive({
+  # dataset filters ----
+  
+  filtered_acid_dataset <- reactive({
     data_long %>%
       filter(condition %in% input$conditions_to_display)
   })
+  
+  filtered_gene_dataset <- reactive({
+    genes_long %>%
+      filter(condition %in% input$conditions_to_display)
+  })
+  
+  
+  # volcano plot ----
   
   output$volcano <- renderPlotly({
 
@@ -154,10 +164,10 @@ server <- function(input, output, session) {
             geom_point(shape = 21) +
             theme(legend.position="none")
       
-      if(! is.null(selected_ids())) {
+      if(! is.null(selected_ids$protein_acid)) {
           
           selected_subset <- volcano_dataset %>%
-             filter(Accession %in% selected_ids())
+             filter(Accession %in% selected_ids$protein_acid)
           #colours_needed <- plot_colours[1:nrow(selected_subset)]
 
           p <- p + geom_point(
@@ -179,7 +189,7 @@ server <- function(input, output, session) {
     
   observeEvent(input$clear_table, {
       selectRows(table_proxy, selected = NULL)
-      selected_ids(NULL)
+    selected_ids$protein_acid <- NULL
   })
   
   observeEvent(input$select_all_plots, {
@@ -207,23 +217,26 @@ server <- function(input, output, session) {
       shinyalert::shinyalert(title = "", text = "Maximum of 4 rows of data will be shown.")
       row_numbers <- row_numbers[1:4]
     } 
-    selected_ids(
-      slice(table_data, row_numbers) %>%
+    selected_ids$protein_acid <- table_data %>%
+      slice(row_numbers) %>%
       pull(Accession)
-    )
+    
+    selected_ids$gene <- table_data %>%
+      slice(row_numbers) %>%
+      pull(Gene)
   })
     
   ## update highlighted rows on table ----
-  observeEvent(selected_ids(), ignoreNULL = FALSE, {
+  observeEvent(selected_ids$protein_acid, ignoreNULL = FALSE, {
   
-    if(length(selected_ids()) != length(input$pp_table_rows_selected)){
+    if(length(selected_ids$protein_acid) != length(input$pp_table_rows_selected)){
       print("discrepancy in selections!!")
   
-      if(is.null(selected_ids())) {
+      if(is.null(selected_ids$protein_acid)) {
         selectRows(table_proxy, selected = NULL)
       } else {
         selected_table_rows <- table_data %>%
-          filter(Accession %in% selected_ids()) %>%
+          filter(Accession %in% selected_ids$protein_acid) %>%
           pull(rowid)
         selectRows(table_proxy, selected = selected_table_rows)
       }
@@ -234,7 +247,7 @@ server <- function(input, output, session) {
   # plotly events ----
     
   observeEvent(event_data("plotly_doubleclick"), {
-      selected_ids(NULL)
+      selected_ids$protein_acid <- NULL
   })
   
   observeEvent(event_data("plotly_click"), {
@@ -247,10 +260,10 @@ server <- function(input, output, session) {
       slice(row_no) %>%
       pull(Accession)
     
-    if(length(selected_ids()) < 4) { # add up to 4 datasets
-      selected_accessions <- c(selected_ids(), selected_accessions)
+    if(length(selected_ids$protein_acid) < 4) { # add up to 4 datasets
+      selected_accessions <- c(selected_ids$protein_acid, selected_accessions)
     }    
-    selected_ids(selected_accessions)
+    selected_ids$protein_acid <- selected_accessions
   })
   
   observeEvent(event_data("plotly_selected"), {
@@ -267,25 +280,23 @@ server <- function(input, output, session) {
       )
       row_numbers <- row_numbers[1:4]
     }
-    selected_ids(
-      slice(volcano_dataset, row_numbers) %>%
+    selected_ids$protein_acid <- slice(volcano_dataset, row_numbers) %>%
       pull(Accession)
-    )
   })
 
       
   observeEvent(event_data("plotly_deselect"), {
     print("none selected")
-    selected_ids(NULL)
+    selected_ids$protein_acid <- NULL
     #selectRows(table_proxy, selected = NULL)
   })
 
   # plot panels -----
   output$gene_expr <- renderUI({
     
-    req(selected_ids())
+    req(selected_ids$gene)
     gene_exprUI <- mod_plotsUI("gene_expr_panel")
-    mod_plotsServer("gene_expr_panel", filtered_dataset,  selected_ids, plot_colours)
+    mod_plotsServer("gene_expr_panel", filtered_gene_dataset,  selected_ids, id_type = "gene", plot_colours)
     
     wellPanel(
       id = "gene_expr_panel", 
@@ -297,9 +308,9 @@ server <- function(input, output, session) {
     
   output$protein1 <- renderUI({
       
-    req(selected_ids())
+    req(selected_ids$protein_acid)
     protein1UI <- mod_plotsUI("protein1_panel")
-    mod_plotsServer("protein1_panel", filtered_dataset,  selected_ids, plot_colours)
+    mod_plotsServer("protein1_panel", filtered_acid_dataset,  selected_ids, id_type = "protein_acid", plot_colours)
   
     wellPanel(
       id = "prot_acid_panel", 
@@ -311,9 +322,9 @@ server <- function(input, output, session) {
     
   output$protein_second <- renderUI({
     
-    req(selected_ids())
+    req(selected_ids$protein_acid)
     protein2UI <- mod_plotsUI("protein2_panel")
-    mod_plotsServer("protein2_panel", filtered_dataset, selected_ids, plot_colours)
+    mod_plotsServer("protein2_panel", filtered_acid_dataset, selected_ids, id_type = "protein_acid", plot_colours)
     
     wellPanel(
       id = "prot_chromatin_panel", 
@@ -325,9 +336,9 @@ server <- function(input, output, session) {
     
   output$histones <- renderUI({
     
-    req(selected_ids())
+    req(selected_ids$protein_acid)
     histoneUI <- mod_plotsUI("histone_panel")
-    mod_plotsServer("histone_panel", filtered_dataset,  selected_ids, plot_colours)
+    mod_plotsServer("histone_panel", filtered_acid_dataset,  selected_ids, id_type = "protein_acid", plot_colours)
     
     wellPanel(
       id = "histone_panel", 

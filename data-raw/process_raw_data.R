@@ -7,7 +7,8 @@ gene_expr <- read_tsv("data-raw/RNAseq_norm_count_matrix.txt")
 genes_long <- gene_expr %>%
   pivot_longer(-Gene) %>%
   separate(name, into = c("condition", "rep"), sep = " ") %>%
-  drop_na()
+  drop_na() %>%
+  rename(Accession = Gene)
 
 saveRDS(genes_long, "data/genes_long.rds")
 
