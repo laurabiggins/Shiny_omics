@@ -18,7 +18,7 @@ table_data <- dataset %>%
 
 plot_colours <- c("red3", "blue3", "green3", "orange3")
 
-conditions <- c("Naive", "Naive+PRC2i", "Primed", "Primed+PRCi")
+conditions <- c("Naive", "Naive+PRC2i", "Primed", "Primed+PRC2i")
 
 acid_plot_height <- "250px"
 
@@ -46,14 +46,14 @@ ui <- fluidPage(
   ),
   wellPanel(id = "table_volcano_panel",
     fluidRow(
-      column(
+      column(class = "table_padding",
         width = 7,
         wellPanel(
           id = "table_panel", 
           actionButton("clear_table", label = "Clear table selections"),
           DT::dataTableOutput("pp_table"))
       ),
-      column(
+      column(class = "volcano_padding",
         width = 5,
         wellPanel(
           id = "volcano_panel",
@@ -63,7 +63,6 @@ ui <- fluidPage(
       )
     )
   ),
-  br(),
   wellPanel(id = "plot_type_selections",
     fluidRow(
       column(
@@ -81,7 +80,6 @@ ui <- fluidPage(
       )
     )
   ),
-  br(),
   fluidRow(
     conditionalPanel(
       condition = "input.plot_panels_to_display.includes('gene_expr')",
@@ -132,8 +130,8 @@ server <- function(input, output, session) {
             width = "600px",
             render = JS(
               "function(data, type, row, meta) {",
-              "return type === 'display' && data.length > 70 ?",
-              "'<span title=\"' + data + '\">' + data.substr(0, 70) + '...</span>' : data;",
+              "return type === 'display' && data.length > 60 ?",
+              "'<span title=\"' + data + '\">' + data.substr(0, 60) + '...</span>' : data;",
               "}"
             )
           )
@@ -188,8 +186,10 @@ server <- function(input, output, session) {
   # observeEvents ----
     
   observeEvent(input$clear_table, {
-      selectRows(table_proxy, selected = NULL)
-    selected_ids$protein_acid <- NULL
+    selectRows(table_proxy, selected = NULL)
+    #selected_ids$protein_acid <- NULL
+    #selected_ids$gene <- NULL
+    set_ids_to_null()
   })
   
   observeEvent(input$select_all_plots, {
@@ -207,23 +207,27 @@ server <- function(input, output, session) {
   })
    
   ## table row selections ----
-  observeEvent(input$pp_table_rows_selected, {
+  observeEvent(input$pp_table_rows_selected, ignoreNULL = FALSE, {
       
     row_numbers <- as.numeric(input$pp_table_rows_selected)
     
-    #print("updating selected rows")
+    print("updating selected rows")
     
-    if(length(row_numbers) > 4){
-      shinyalert::shinyalert(title = "", text = "Maximum of 4 rows of data will be shown.")
-      row_numbers <- row_numbers[1:4]
-    } 
-    selected_ids$protein_acid <- table_data %>%
-      slice(row_numbers) %>%
-      pull(Accession)
-    
-    selected_ids$gene <- table_data %>%
-      slice(row_numbers) %>%
-      pull(Gene)
+    if(length(row_numbers) == 0){
+      set_ids_to_null()
+    } else {
+        if(length(row_numbers) > 4){
+          shinyalert::shinyalert(title = "", text = "Maximum of 4 rows of data will be shown.")
+          row_numbers <- row_numbers[1:4]
+        } 
+        selected_ids$protein_acid <- table_data %>%
+          slice(row_numbers) %>%
+          pull(Accession)
+        
+        selected_ids$gene <- table_data %>%
+          slice(row_numbers) %>%
+          pull(Gene_expr_id)
+    }
   })
     
   ## update highlighted rows on table ----
@@ -242,12 +246,18 @@ server <- function(input, output, session) {
       }
     }
   })
-    
+   
+  set_ids_to_null <- function(){
+    selected_ids$protein_acid <- NULL
+    selected_ids$gene <- NULL
+  } 
     
   # plotly events ----
     
   observeEvent(event_data("plotly_doubleclick"), {
-      selected_ids$protein_acid <- NULL
+      #selected_ids$protein_acid <- NULL
+      #selected_ids$gene <- NULL
+      set_ids_to_null()
   })
   
   observeEvent(event_data("plotly_click"), {
@@ -294,16 +304,28 @@ server <- function(input, output, session) {
   # plot panels -----
   output$gene_expr <- renderUI({
     
-    req(selected_ids$gene)
-    gene_exprUI <- mod_plotsUI("gene_expr_panel")
-    mod_plotsServer("gene_expr_panel", filtered_gene_dataset,  selected_ids, id_type = "gene", plot_colours)
-    
-    wellPanel(
-      id = "gene_expr_panel", 
-      class = "plot_panel",
-      h2("Gene expression", class = "panel_title"),
-      gene_exprUI
-    )
+    if(!is.null(selected_ids$gene)){
+      if(!isTruthy(selected_ids$gene)){
+        wellPanel(
+          id = "gene_expr_panel", 
+          class = "plot_panel",
+          h2("Gene expression", class = "panel_title"),
+          p(class = "no_data", "No data for selected genes")
+        )
+      } else {
+      
+        req(selected_ids$gene)
+        gene_exprUI <- mod_plotsUI("gene_expr_panel")
+        mod_plotsServer("gene_expr_panel", filtered_gene_dataset,  selected_ids, id_type = "gene", plot_colours)
+        
+        wellPanel(
+          id = "gene_expr_panel", 
+          class = "plot_panel",
+          h2("Gene expression", class = "panel_title"),
+          gene_exprUI
+        )
+      }
+    }  
   }) 
     
   output$protein1 <- renderUI({

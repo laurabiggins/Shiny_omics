@@ -1,4 +1,6 @@
 
+## Try just having one layout!!
+
 mod_plotsUI <- function(id){
   
   ns <- NS(id)
@@ -19,6 +21,19 @@ mod_plotsServer <- function(id, data_long, selected_ids, id_type, plot_colours, 
    # data_initial_filt <- reactive(filter(data_long(), Accession %in% selected_ids()))
     ids <- reactive(selected_ids[[id_type]])
     
+    tags_plot <- function(id, plot_name, plot_height = "200px"){
+      if(id == "") {
+        tags <- tagList(p(class = "no_data", "No data available"))
+      } else {
+        tags <- tagList(
+          plotOutput(ns_server(plot_name), height = plot_height)
+        )
+      }
+     tags 
+    }
+    
+    
+    
     output$plot_panel <- renderUI({
       
       #ids <- selected_ids[[id_type]]
@@ -29,40 +44,38 @@ mod_plotsServer <- function(id, data_long, selected_ids, id_type, plot_colours, 
       
       if(length(ids()) > 4){
         tags <- NULL
-      }
+      } 
       
       if(length(ids()) == 1){
-        tags <- tagList(
-          plotOutput(ns_server("plot1"), height = plot_height)
-        )
+        tags <- tags_plot(ids()[1], plot_name = "plot1")
       } else if (length(ids()) == 2){
         tags <- tagList(
-          splitLayout(
-            plotOutput(ns_server("plot1"), height = plot_height),
-            plotOutput(ns_server("plot2"), height = plot_height)
-          )
+          fluidRow(
+            column(width = 6, tags_plot(ids()[1], plot_name = "plot1")),
+            column(width = 6, tags_plot(ids()[2], plot_name = "plot2"))
+          )  
         )
       } else if (length(ids()) == 3){
         tags <- tagList(
           fluidRow(
-            column(width = 6, plotOutput(ns_server("plot1"), height = plot_height)),
-            column(width = 6, plotOutput(ns_server("plot2"), height = plot_height))
+            column(width = 6, tags_plot(ids()[1], plot_name = "plot1")),
+            column(width = 6, tags_plot(ids()[2], plot_name = "plot2"))
           ),
           br(),
           fluidRow(
-            column(width = 6, plotOutput(ns_server("plot3"), height = plot_height))
+            column(width = 6, tags_plot(ids()[3], plot_name = "plot3"))
           )
         )
       } else if (length(ids()) == 4){
         tags <- tagList(
           fluidRow(
-            column(width = 6, plotOutput(ns_server("plot1"), height = plot_height)),
-            column(width = 6, plotOutput(ns_server("plot2"), height = plot_height))
+            column(width = 6, tags_plot(ids()[1], plot_name = "plot1")),
+            column(width = 6, tags_plot(ids()[2], plot_name = "plot2"))
           ),
           br(),
           fluidRow(
-            column(width = 6, plotOutput(ns_server("plot3"), height = plot_height)),
-            column(width = 6, plotOutput(ns_server("plot4"), height = plot_height))
+            column(width = 6, tags_plot(ids()[3], plot_name = "plot3")),
+            column(width = 6, tags_plot(ids()[4], plot_name = "plot4"))
           )
         )
       }
@@ -88,7 +101,7 @@ mod_plotsServer <- function(id, data_long, selected_ids, id_type, plot_colours, 
       
       acid_boxplot(data_filt, id, plot_colours[1])
         
-    }) %>% bindCache(ids()[1])#, data_long()) # could probably pass the name of the dataset - would be 
+    }) %>% bindCache(ids()[1], data_long()) # could probably pass the name of the dataset - would be 
     # more efficient to compare than the whole dataset
     
     output$plot2 <- renderPlot({

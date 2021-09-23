@@ -36,6 +36,7 @@
 dt_setup <-  function(data, 
                       n_rows = 10, 
                       lineHeight = "50%", 
+                      font_size = "90%",
                       dom_opt = "tip", 
                       cols_to_round = NULL, 
                       dt_options = NULL, 
@@ -72,7 +73,7 @@ dt_setup <-  function(data,
     selection = selection
     
   ) %>%
-    DT::formatStyle(0, target = 'row', lineHeight = lineHeight)
+    DT::formatStyle(0, target = 'row', lineHeight = lineHeight, fontSize = font_size)
   
   if (!is.null(cols_to_round)) {
     dt_table <- DT::formatRound(dt_table, cols_to_round, sig_digits)

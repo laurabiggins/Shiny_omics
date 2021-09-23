@@ -34,12 +34,18 @@ acid_pval_fc <- acid_pvals %>%
 acid_meta <- acid_extractome %>%
   select(Accession, Description) %>%
   separate(Description, sep = "GN=", into = c(NA, "Gene"), remove = FALSE) %>%
-  separate(Gene, sep = " ", into = c("Gene", NA)) %>%
-  select(Accession, Gene, Description) 
+  separate(Gene, sep = " ", into = c("Gene_expr_id", NA)) %>%
+  select(Accession, Gene_expr_id, Description) 
+
+# remove gene ids that don't have expression values
+all_gene_names <- pull(gene_expr, Gene) 
+
+acid_meta <- acid_meta %>%
+  mutate(Gene_expr_id = if_else(Gene_expr_id %in% all_gene_names, Gene_expr_id, ""))
+  
 
 # add the extra genes in to table
-all_gene_names <- pull(gene_expr, Gene) 
-genes_not_in <- tibble::enframe(all_gene_names[!all_gene_names %in% acid_meta$Gene], name = NULL, value = "Gene")
+genes_not_in <- tibble::enframe(all_gene_names[!all_gene_names %in% acid_meta$Gene_expr_id], name = NULL, value = "Gene_expr_id")
 
 genes_to_add <- genes_not_in %>%
   mutate(Accession = "") %>%

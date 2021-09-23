@@ -19,6 +19,10 @@
   background-color: #EE6C4D;
 }
 
+.no_data {
+  text-align: center;
+  padding: 50px;
+}
 .checkbox {
   margin: 0;
   /*margin-top: 2px;
@@ -29,19 +33,28 @@
   margin-top: 0px;
 }
 
+.table_padding {
+  padding: 0px 5px 0px 15px;
+}
+
+.volcano_padding {
+  padding: 0px 15px 0px 5px;
+}
+
 /* extra colour - purple
 #7B6D8D */
 
 #title_section {
  border: 3px solid #888;
  padding: 30px;
- margin: 10px;
+ margin: 10px 0px;
  background-color: #C3D0EA;
 }
 
 #table_volcano_panel{
  border: 3px solid #888;
- margin: 10px;
+ margin: 10px 0px;
+ padding: 10px;
  background-color: #C3D0EA;
 }
 
@@ -52,11 +65,13 @@
 
 #volcano_panel{
   border: 3px solid #888;
+  margin-bottom: 0;
+  padding: 15px;
 }
 
 #plot_type_selections {
    border: 3px solid #888;
-   margin: 0 10px;
+   margin: 10px 0px;
    padding: 5px;
    padding-bottom: 0;
 }
@@ -64,8 +79,6 @@
 #select_all_plots{
   font-weight: bold
 }
-
-
 
 .inner_plot_panel {
   padding: 0;
@@ -76,7 +89,7 @@
 }
 
 .table>tbody>tr>td, .table>tbody>tr>th, .table>tfoot>tr>td, .table>tfoot>tr>th, .table>thead>tr>td, .table>thead>tr>th {
-    line-height: 12px;
+    line-height: 11px;
 }
 
 .dataTables_paginate{
