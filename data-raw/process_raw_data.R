@@ -33,6 +33,7 @@ process_histone_data <- function(dataset, medium_name){
   dataset %>% 
     select(c(-Histone, -Sequence, -PTM)) %>%
     pivot_longer(-`Histone mark`) %>%
+    mutate(value = as.numeric(value)) %>%
     separate(name, into = c("condition", "rep"), sep = " ") %>%
     drop_na() %>%
     mutate(medium = medium_name)
@@ -43,6 +44,9 @@ histone_data <- bind_rows(
   process_histone_data(ENHSM, "ENHSM"),
   process_histone_data(t2iLGo, "t2iLGo")
 )
+
+histone_data$`Histone mark` <- str_replace(histone_data$`Histone mark`, pattern = "Ac", replacement = "ac")
+
 
 saveRDS(histone_data, "data/histone_data.rds")
 
