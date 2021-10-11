@@ -7,11 +7,12 @@ mod_plotsUI <- function(id){
   
   tagList(
       uiOutput(ns("plot_panel"), class = "plot_box"),
+      actionButton(ns("browser"), "browser")
   )  
       
 }
 
-mod_plotsServer <- function(id, data_long, selected_ids, id_type, plot_colours, plot_height = "200px") {
+mod_plotsServer <- function(id, data_long, selected_ids, id_type, plot_colours, second_factor = FALSE, accession_col = "Accession", plot_height = "200px") {
   moduleServer(id, function(input, output, session) {
     
     ns_server <- NS(id)
@@ -22,8 +23,8 @@ mod_plotsServer <- function(id, data_long, selected_ids, id_type, plot_colours, 
     ids <- reactive(selected_ids[[id_type]])
     
     tags_plot <- function(id, plot_name, plot_height = "200px"){
-      if(id == "") {
-        tags <- tagList(p(class = "no_data", "No data available"))
+      if(!isTruthy(id)) {
+        tags <- tagList(p(class = "no_data", "No data available", height = plot_height))
       } else {
         tags <- tagList(
           plotOutput(ns_server(plot_name), height = plot_height)
@@ -50,30 +51,30 @@ mod_plotsServer <- function(id, data_long, selected_ids, id_type, plot_colours, 
         tags <- tags_plot(ids()[1], plot_name = "plot1")
       } else if (length(ids()) == 2){
         tags <- tagList(
-          fluidRow(
+          fluidRow(class = "plotRow",
             column(width = 6, tags_plot(ids()[1], plot_name = "plot1")),
             column(width = 6, tags_plot(ids()[2], plot_name = "plot2"))
           )  
         )
       } else if (length(ids()) == 3){
         tags <- tagList(
-          fluidRow(
+          fluidRow(class = "plotRow",
             column(width = 6, tags_plot(ids()[1], plot_name = "plot1")),
             column(width = 6, tags_plot(ids()[2], plot_name = "plot2"))
           ),
           br(),
-          fluidRow(
+          fluidRow(class = "plotRow",
             column(width = 6, tags_plot(ids()[3], plot_name = "plot3"))
           )
         )
       } else if (length(ids()) == 4){
         tags <- tagList(
-          fluidRow(
+          fluidRow(class = "plotRow",
             column(width = 6, tags_plot(ids()[1], plot_name = "plot1")),
             column(width = 6, tags_plot(ids()[2], plot_name = "plot2"))
           ),
           br(),
-          fluidRow(
+          fluidRow(class = "plotRow",
             column(width = 6, tags_plot(ids()[3], plot_name = "plot3")),
             column(width = 6, tags_plot(ids()[4], plot_name = "plot4"))
           )
@@ -83,12 +84,19 @@ mod_plotsServer <- function(id, data_long, selected_ids, id_type, plot_colours, 
     })
     
     ## protein acid plots ----
-    acid_boxplot <- function(data, title, box_colour){
+    acid_boxplot <- function(data, title, box_colour, second_factor = FALSE){
 
-      ggplot(data, aes(x = condition, y = value)) +
-        geom_boxplot(fill = box_colour) +
-        xlab("") +
-        ggtitle(title)
+      if(isTruthy(second_factor)){
+        ggplot(data, aes(x = condition, y = value, colour = .data[[second_factor]])) +
+          geom_boxplot(fill = box_colour, lwd = 1.5, fatten = 0.5) +
+          xlab("") +
+          ggtitle(title)
+      } else {
+        ggplot(data, aes(x = condition, y = value)) +
+          geom_boxplot(fill = box_colour) +
+          xlab("") +
+          ggtitle(title)
+      }
     }
     
     output$plot1 <- renderPlot({
@@ -97,9 +105,9 @@ mod_plotsServer <- function(id, data_long, selected_ids, id_type, plot_colours, 
       req(id)
 
       data_filt <- data_long() %>%
-        filter(Accession == id)
+        filter(.data[[accession_col]] == id)
       
-      acid_boxplot(data_filt, id, plot_colours[1])
+      acid_boxplot(data_filt, id, plot_colours[1], second_factor = second_factor)
         
     }) %>% bindCache(ids()[1], data_long()) # could probably pass the name of the dataset - would be 
     # more efficient to compare than the whole dataset
@@ -110,9 +118,9 @@ mod_plotsServer <- function(id, data_long, selected_ids, id_type, plot_colours, 
       id <- ids()[2]
       
       data_filt <- data_long() %>%
-        filter(Accession == id)
+        filter(.data[[accession_col]] == id)
       
-      acid_boxplot(data_filt, id, plot_colours[2])
+      acid_boxplot(data_filt, id, plot_colours[2], second_factor = second_factor)
       
     }) %>% bindCache(ids()[2], data_long())
     
@@ -122,9 +130,9 @@ mod_plotsServer <- function(id, data_long, selected_ids, id_type, plot_colours, 
       id <- ids()[3]
       
       data_filt <- data_long() %>%
-        filter(Accession == id)
+        filter(.data[[accession_col]] == id)
       
-      acid_boxplot(data_filt, id, plot_colours[3])
+      acid_boxplot(data_filt, id, plot_colours[3], second_factor = second_factor)
     }) %>% bindCache(ids()[3], data_long())
     
     output$plot4 <- renderPlot({
@@ -133,9 +141,9 @@ mod_plotsServer <- function(id, data_long, selected_ids, id_type, plot_colours, 
       id <- ids()[4]
       
       data_filt <- data_long() %>%
-        filter(Accession == id)
+        filter(.data[[accession_col]] == id)
       
-      acid_boxplot(data_filt, id, plot_colours[4])
+      acid_boxplot(data_filt, id, plot_colours[4], second_factor = second_factor)
     }) %>% bindCache(ids()[4], data_long())
   })   
 }            

@@ -3,11 +3,14 @@ library(tidyverse)
 library(plotly)
 library(DT)
 
+# TODO: when a point is clicked, directly update the selected rows on the table,
+# maybe then just have  a selected_subset rather than all the individual selections.
 
 dataset <- readRDS("data/meta.rds") #used for the DT - searching
 data_long <- readRDS("data/acid_long.rds")
 acid_pval_fc <- readRDS("data/acid_pval_fc.rds")
 genes_long <- readRDS("data/genes_long.rds")
+histone_data <- readRDS("data/histone_data.rds")
 #acid_pval_fc <- readRDS("data/pval_check_temp.rds")
 
 volcano_dataset <- acid_pval_fc
@@ -152,6 +155,11 @@ server <- function(input, output, session) {
       filter(condition %in% input$conditions_to_display)
   })
   
+  filtered_histone_dataset <- reactive({
+    histone_data %>%
+      filter(condition %in% input$conditions_to_display)
+  })
+  
   
   # volcano plot ----
   
@@ -220,13 +228,13 @@ server <- function(input, output, session) {
           shinyalert::shinyalert(title = "", text = "Maximum of 4 rows of data will be shown.")
           row_numbers <- row_numbers[1:4]
         } 
-        selected_ids$protein_acid <- table_data %>%
-          slice(row_numbers) %>%
-          pull(Accession)
+      
+        selected_rows <- slice(table_data, row_numbers)
         
-        selected_ids$gene <- table_data %>%
-          slice(row_numbers) %>%
-          pull(Gene_expr_id)
+        selected_ids$protein_acid <- pull(selected_rows, Accession)
+        selected_ids$gene <- pull(selected_rows, Gene_expr_id)
+        selected_ids$histone <- pull(selected_rows, histone_mark)
+        
     }
   })
     
@@ -302,6 +310,7 @@ server <- function(input, output, session) {
   })
 
   # plot panels -----
+  ## gene expr ----
   output$gene_expr <- renderUI({
     
     if(!is.null(selected_ids$gene)){
@@ -327,7 +336,9 @@ server <- function(input, output, session) {
       }
     }  
   }) 
-    
+   
+  ## protein acid ----
+   
   output$protein1 <- renderUI({
       
     req(selected_ids$protein_acid)
@@ -341,7 +352,9 @@ server <- function(input, output, session) {
       protein1UI
     )
   })
-    
+   
+  ## protein other ----
+   
   output$protein_second <- renderUI({
     
     req(selected_ids$protein_acid)
@@ -355,12 +368,14 @@ server <- function(input, output, session) {
       protein2UI
     )
   })
-    
+   
+  ## histones ----
+   
   output$histones <- renderUI({
     
-    req(selected_ids$protein_acid)
+    req(selected_ids$histone)
     histoneUI <- mod_plotsUI("histone_panel")
-    mod_plotsServer("histone_panel", filtered_acid_dataset,  selected_ids, id_type = "protein_acid", plot_colours)
+    mod_plotsServer("histone_panel", filtered_histone_dataset,  selected_ids, id_type = "histone", accession_col = "Histone mark", plot_colours, second_factor = "medium")
     
     wellPanel(
       id = "histone_panel", 
