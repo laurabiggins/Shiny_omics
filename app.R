@@ -48,7 +48,7 @@ ui <- fluidPage(
     h4("Zijlmans, Talon, Verhelst, Bendall et al."),
     br()
   ),
-  ## data table and volcano panel ----
+  ## table and volcano panel ----
   wellPanel(id = "table_volcano_panel",
     fluidRow(
       column(class = "table_padding",
@@ -56,7 +56,11 @@ ui <- fluidPage(
         wellPanel(
           id = "table_panel", 
           actionButton("clear_table", label = "Clear table selections"),
-          DT::dataTableOutput("pp_table"))
+          tabsetPanel(
+            tabPanel("all", DT::dataTableOutput("pp_table")),
+            tabPanel("selected", br(), DT::dataTableOutput("selected_table"))
+          )
+        )
       ),
       column(class = "volcano_padding",
         width = 5,
@@ -117,6 +121,7 @@ ui <- fluidPage(
   actionButton("browser", "browser")
 )
 
+# key for data table ----
 key <- row.names(volcano_dataset)
 
 # server ----
@@ -124,12 +129,16 @@ server <- function(input, output, session) {
     
   table_proxy <- dataTableProxy("pp_table")
   
+  ## filtered datatable ----
+  filtered_meta <- reactiveVal()
+  
   selected_ids <- reactiveValues()
   
   ## main datatable ----
   output$pp_table <- DT::renderDataTable({
     dt_setup(
-      dataset,
+      #table_data,
+      select(table_data, -1),
       #lineHeight = "50%",
       selection = "multiple",
       dt_options = list(
@@ -150,7 +159,12 @@ server <- function(input, output, session) {
     )
   })
   
-  ## filtered datatable ----
+  ## render filtered meta ----
+  output$selected_table <- DT::renderDataTable({
+    req(filtered_meta())
+    dt_setup(filtered_meta())
+  })
+  
   
   ## dataset filters ----
   filtered_acid_dataset <- reactive({
@@ -178,10 +192,10 @@ server <- function(input, output, session) {
             geom_point(shape = 21) +
             theme(legend.position="none")
       
-      if(! is.null(selected_ids$protein_acid)) {
+      if(! is.null(filtered_meta()[["Accession"]])) {
           
           selected_subset <- volcano_dataset %>%
-             filter(Accession %in% selected_ids$protein_acid)
+             filter(Accession %in% filtered_meta()[["Accession"]])
           #colours_needed <- plot_colours[1:nrow(selected_subset)]
 
           p <- p + geom_point(
@@ -203,8 +217,6 @@ server <- function(input, output, session) {
   ### clear selections ----  
   observeEvent(input$clear_table, {
     selectRows(table_proxy, selected = NULL)
-    #selected_ids$protein_acid <- NULL
-    #selected_ids$gene <- NULL
     set_ids_to_null()
   })
   
@@ -225,6 +237,8 @@ server <- function(input, output, session) {
    
   ### table row selections ----
   observeEvent(input$pp_table_rows_selected, ignoreNULL = FALSE, {
+    
+    #browser()
       
     row_numbers <- as.numeric(input$pp_table_rows_selected)
     
@@ -240,43 +254,41 @@ server <- function(input, output, session) {
       
         selected_rows <- slice(table_data, row_numbers)
         
-        selected_ids$protein_acid <- pull(selected_rows, Accession)
-        selected_ids$gene <- pull(selected_rows, Gene_expr_id)
-        selected_ids$histone <- pull(selected_rows, histone_mark)
+        filtered_meta(selected_rows)
         
     }
   })
     
   ### update highlighted rows on table ----
-  observeEvent(selected_ids$protein_acid, ignoreNULL = FALSE, {
-  
-    if(length(selected_ids$protein_acid) != length(input$pp_table_rows_selected)){
-      print("discrepancy in selections!!")
-  
-      if(is.null(selected_ids$protein_acid)) {
-        selectRows(table_proxy, selected = NULL)
-      } else {
-        selected_table_rows <- table_data %>%
-          filter(Accession %in% selected_ids$protein_acid) %>%
-          pull(rowid)
-        selectRows(table_proxy, selected = selected_table_rows)
-      }
+  observeEvent(filtered_meta(), ignoreNULL = FALSE, {
+
+    #browser()
+    
+    if(is.null(filtered_meta())){
+      selectRows(table_proxy, selected = NULL)
+    } else if (length(filtered_meta()$rowid) != length(input$pp_table_rows_selected)){
+      selectRows(table_proxy, selected = filtered_meta()$rowid)
+      
+    } else if (any(filtered_meta()$rowid != input$pp_table_rows_selected)){
+        print("discrepancy in selections!!")
+        # we go with the filtered_meta() object as this gets updated from other sources i.e. the volcano plot
+        selectRows(table_proxy, selected = filtered_meta()$rowid)
     }
   })
    
   set_ids_to_null <- function(){
-    selected_ids$protein_acid <- NULL
-    selected_ids$gene <- NULL
+    print("setting ids to null")
+    filtered_meta(NULL)
   } 
     
   ## plotly events ----
     
   observeEvent(event_data("plotly_doubleclick"), {
-      #selected_ids$protein_acid <- NULL
-      #selected_ids$gene <- NULL
       set_ids_to_null()
   })
   
+  ### click - selecting one point at a time ----
+  ### update the selected rows on table
   observeEvent(event_data("plotly_click"), {
 
     d <- event_data("plotly_click")
@@ -286,17 +298,23 @@ server <- function(input, output, session) {
     selected_accessions <- volcano_dataset %>%
       slice(row_no) %>%
       pull(Accession)
+
+    row_to_add <- filter(table_data, Accession == selected_accessions)
     
-    if(length(selected_ids$protein_acid) < 4) { # add up to 4 datasets
-      selected_accessions <- c(selected_ids$protein_acid, selected_accessions)
-    }    
-    selected_ids$protein_acid <- selected_accessions
+    if(is.null(filtered_meta())) {
+      filtered_meta(row_to_add)
+    } else if (nrow(filtered_meta()) < 4) {
+      filtered_meta(bind_rows(filtered_meta(), row_to_add))
+    }  
+
   })
-  
+
+  # this wipes out other selections at the moment  
   observeEvent(event_data("plotly_selected"), {
    
     d <- event_data("plotly_selected")
     req(d)
+    filtered_meta(NULL)
     row_numbers <- as.numeric(d$key)
     
     if(length(row_numbers) > 4){
@@ -307,14 +325,21 @@ server <- function(input, output, session) {
       )
       row_numbers <- row_numbers[1:4]
     }
-    selected_ids$protein_acid <- slice(volcano_dataset, row_numbers) %>%
+    
+    selected_accessions <- volcano_dataset %>%
+      slice(row_numbers) %>%
       pull(Accession)
+    
+    selected_rows <- filter(table_data, Accession %in% selected_accessions)
+
+    filtered_meta(selected_rows)
+    
   })
 
       
   observeEvent(event_data("plotly_deselect"), {
     print("none selected")
-    selected_ids$protein_acid <- NULL
+    filtered_meta(NULL)
     #selectRows(table_proxy, selected = NULL)
   })
 
@@ -322,8 +347,8 @@ server <- function(input, output, session) {
   ### gene expr ----
   output$gene_expr <- renderUI({
     
-    if(!is.null(selected_ids$gene)){
-      if(!isTruthy(selected_ids$gene)){
+    if(!is.null(filtered_meta()[["Gene_expr_id"]])){
+      if(!isTruthy(filtered_meta()[["Gene_expr_id"]])){
         wellPanel(
           id = "gene_expr_panel", 
           class = "plot_panel",
@@ -332,9 +357,9 @@ server <- function(input, output, session) {
         )
       } else {
       
-        req(selected_ids$gene)
+        req(filtered_meta()$Gene_expr_id)
         gene_exprUI <- mod_plotsUI("gene_expr_panel")
-        mod_plotsServer("gene_expr_panel", filtered_gene_dataset,  selected_ids, id_type = "gene", plot_colours)
+        mod_plotsServer("gene_expr_panel", filtered_gene_dataset,  filtered_meta, id_type = "Gene_expr_id", plot_colours)
         
         wellPanel(
           id = "gene_expr_panel", 
@@ -350,9 +375,9 @@ server <- function(input, output, session) {
    
   output$protein1 <- renderUI({
       
-    req(selected_ids$protein_acid)
+    req(filtered_meta()[["Accession"]])
     protein1UI <- mod_plotsUI("protein1_panel")
-    mod_plotsServer("protein1_panel", filtered_acid_dataset,  selected_ids, id_type = "protein_acid", plot_colours)
+    mod_plotsServer("protein1_panel", filtered_acid_dataset,  filtered_meta, id_type = "Accession", plot_colours)
   
     wellPanel(
       id = "prot_acid_panel", 
@@ -366,9 +391,9 @@ server <- function(input, output, session) {
    
   output$protein_second <- renderUI({
     
-    req(selected_ids$protein_acid)
+    req(filtered_meta()[["Accession"]])
     protein2UI <- mod_plotsUI("protein2_panel")
-    mod_plotsServer("protein2_panel", filtered_acid_dataset, selected_ids, id_type = "protein_acid", plot_colours)
+    mod_plotsServer("protein2_panel", filtered_acid_dataset, filtered_meta, id_type = "Accession", plot_colours)
     
     wellPanel(
       id = "prot_chromatin_panel", 
@@ -382,9 +407,9 @@ server <- function(input, output, session) {
    
   output$histones <- renderUI({
     
-    req(selected_ids$histone)
+    req(filtered_meta()[["histone_mark"]])
     histoneUI <- mod_plotsUI("histone_panel")
-    mod_plotsServer("histone_panel", filtered_histone_dataset,  selected_ids, id_type = "histone", accession_col = "Histone mark", plot_colours, second_factor = "medium")
+    mod_plotsServer("histone_panel", filtered_histone_dataset,  filtered_meta, id_type = "histone_mark", accession_col = "Histone mark", plot_colours, second_factor = "medium")
     
     wellPanel(
       id = "histone_panel", 

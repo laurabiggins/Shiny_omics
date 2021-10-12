@@ -19,8 +19,7 @@ mod_plotsServer <- function(id, data_long, selected_ids, id_type, plot_colours, 
 
     observeEvent(input$browser, browser())
     
-   # data_initial_filt <- reactive(filter(data_long(), Accession %in% selected_ids()))
-    ids <- reactive(selected_ids[[id_type]])
+    ids <- reactive(selected_ids()[[id_type]])
     
     tags_plot <- function(id, plot_name, plot_height = "200px"){
       if(!isTruthy(id)) {
