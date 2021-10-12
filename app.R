@@ -32,6 +32,7 @@ datatypes <- c(
   "Histone modification abundance" = "histones"
 )
 
+# UI ----
 ui <- fluidPage(
 
   shinyalert::useShinyalert(),
@@ -39,7 +40,7 @@ ui <- fluidPage(
     tags$link(rel = "stylesheet", type = "text/css", href = "omics.css")
   ),
   
-  # Application title
+  ## Title panel ----
   wellPanel(id = "title_section", 
     titlePanel("Chromatin and histone proteomics of human pluripotent states"),
     h3("Integrated Multi-Omics Analyses Reveal Polycomb Repressive Complex 2
@@ -47,6 +48,7 @@ ui <- fluidPage(
     h4("Zijlmans, Talon, Verhelst, Bendall et al."),
     br()
   ),
+  ## data table and volcano panel ----
   wellPanel(id = "table_volcano_panel",
     fluidRow(
       column(class = "table_padding",
@@ -66,6 +68,7 @@ ui <- fluidPage(
       )
     )
   ),
+  ## data type checkboxes ----
   wellPanel(id = "plot_type_selections",
     fluidRow(
       column(
@@ -83,6 +86,7 @@ ui <- fluidPage(
       )
     )
   ),
+  ## plot panels ----
   fluidRow(
     conditionalPanel(
       condition = "input.plot_panels_to_display.includes('gene_expr')",
@@ -101,6 +105,7 @@ ui <- fluidPage(
         column(width = 6, uiOutput("histones", class = "plot_box"))
     ) 
  ),
+ ## condition type checkboxes ----
   checkboxGroupInput(
       inputId = "conditions_to_display",
       label = "",
@@ -114,12 +119,14 @@ ui <- fluidPage(
 
 key <- row.names(volcano_dataset)
 
+# server ----
 server <- function(input, output, session) {
     
   table_proxy <- dataTableProxy("pp_table")
   
   selected_ids <- reactiveValues()
   
+  ## main datatable ----
   output$pp_table <- DT::renderDataTable({
     dt_setup(
       dataset,
@@ -143,8 +150,9 @@ server <- function(input, output, session) {
     )
   })
   
-  # dataset filters ----
+  ## filtered datatable ----
   
+  ## dataset filters ----
   filtered_acid_dataset <- reactive({
     data_long %>%
       filter(condition %in% input$conditions_to_display)
@@ -161,7 +169,7 @@ server <- function(input, output, session) {
   })
   
   
-  # volcano plot ----
+  ## volcano plot ----
   
   output$volcano <- renderPlotly({
 
@@ -191,8 +199,8 @@ server <- function(input, output, session) {
         
     })
     
-  # observeEvents ----
-    
+  ## observeEvents ----
+  ### clear selections ----  
   observeEvent(input$clear_table, {
     selectRows(table_proxy, selected = NULL)
     #selected_ids$protein_acid <- NULL
@@ -200,6 +208,7 @@ server <- function(input, output, session) {
     set_ids_to_null()
   })
   
+  ### select datatypes ----
   observeEvent(input$select_all_plots, {
       
     if(input$select_all_plots) {
@@ -214,7 +223,7 @@ server <- function(input, output, session) {
     }
   })
    
-  ## table row selections ----
+  ### table row selections ----
   observeEvent(input$pp_table_rows_selected, ignoreNULL = FALSE, {
       
     row_numbers <- as.numeric(input$pp_table_rows_selected)
@@ -238,7 +247,7 @@ server <- function(input, output, session) {
     }
   })
     
-  ## update highlighted rows on table ----
+  ### update highlighted rows on table ----
   observeEvent(selected_ids$protein_acid, ignoreNULL = FALSE, {
   
     if(length(selected_ids$protein_acid) != length(input$pp_table_rows_selected)){
@@ -260,7 +269,7 @@ server <- function(input, output, session) {
     selected_ids$gene <- NULL
   } 
     
-  # plotly events ----
+  ## plotly events ----
     
   observeEvent(event_data("plotly_doubleclick"), {
       #selected_ids$protein_acid <- NULL
@@ -309,8 +318,8 @@ server <- function(input, output, session) {
     #selectRows(table_proxy, selected = NULL)
   })
 
-  # plot panels -----
-  ## gene expr ----
+  ## plot panels -----
+  ### gene expr ----
   output$gene_expr <- renderUI({
     
     if(!is.null(selected_ids$gene)){
@@ -337,7 +346,7 @@ server <- function(input, output, session) {
     }  
   }) 
    
-  ## protein acid ----
+  ### protein acid ----
    
   output$protein1 <- renderUI({
       
@@ -353,7 +362,7 @@ server <- function(input, output, session) {
     )
   })
    
-  ## protein other ----
+  ### protein other ----
    
   output$protein_second <- renderUI({
     
@@ -369,7 +378,7 @@ server <- function(input, output, session) {
     )
   })
    
-  ## histones ----
+  ### histones ----
    
   output$histones <- renderUI({
     
