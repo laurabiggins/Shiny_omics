@@ -1,6 +1,5 @@
 library(tidyverse)
 acid_extractome <- read_tsv("data-raw/AcidExtractome_Data.txt")
-acid_pvals <- read_tsv("data-raw/AcidExtractome_pvals.txt")
 gene_expr <- read_tsv("data-raw/RNAseq_norm_count_matrix.txt")
 
 
@@ -45,7 +44,8 @@ histone_data <- bind_rows(
   process_histone_data(t2iLGo, "t2iLGo")
 )
 
-histone_data$`Histone mark` <- str_replace(histone_data$`Histone mark`, pattern = "Ac", replacement = "ac")
+histone_data <- dplyr::rename(histone_data, histone_mark = `Histone mark`)
+histone_data$histone_mark <- str_replace(histone_data$histone_mark, pattern = "Ac", replacement = "ac")
 
 
 saveRDS(histone_data, "data/histone_data.rds")
@@ -106,33 +106,51 @@ hist_links_matched <- histone_links %>%
 
 
 ## p-value processing ----
+# p-values are provided but we need log2 fc too for the volcano plot
+acid_pvals <- read_tsv("data-raw/AcidExtractome_pvals.txt")
 
-fold_change_mean <- acid_long %>%
-  filter(condition %in% c("Naive", "Primed")) %>%
+fold_change <- acid_long %>%
   group_by(Accession, condition) %>%
   summarise(mean = mean(value)) %>%
   mutate(mean = if_else(mean == 0, 1, mean)) %>%  # replace 0s with value of 1 - if we go for 0.0000001, we'll get ridiculous fc values
   pivot_wider(names_from = condition, values_from = mean) %>%
-  mutate(naive_primed_fc = Naive/Primed) %>%
-  mutate(log2fc_naive_primed = log2(naive_primed_fc))
-  
+  mutate(naive_primed = log2(Naive/Primed)) %>%
+  mutate(naive_naive2i = log2(Naive/`Naive+PRC2i`)) %>%
+  mutate(primed_primed2i = log2(Primed/`Primed+PRC2i`)) %>%
+  ungroup() %>%
+  select(-(2:5)) %>%
+  pivot_longer(cols = !Accession, values_to = "log2fc", names_to = "condition", values_drop_na = TRUE)
+
+ 
 acid_pval_fc <- acid_pvals %>%
-  select(1:2) %>%
-  left_join(fold_change_mean)
+  pivot_longer(cols = !Accession, names_to = "condition", values_to = "pval") %>%
+  left_join(fold_change)
 
 saveRDS(acid_pval_fc, "data/acid_pval_fc.rds")
 
 
+histone_pvals <- read_tsv("data-raw/hPTM_pvals.txt")
 
+histone_fc <- histone_data %>%
+  group_by(medium, histone_mark, condition) %>%
+  summarise(mean = mean(value)) %>%
+  ungroup() %>%
+  group_by(medium) %>%
+  # mutate(mean = if_else(mean == 0, 1, mean)) %>%  # much smaller values than the acid set
+  pivot_wider(names_from = condition, values_from = mean) %>%
+  mutate(naive_primed = log2(Naive/Primed)) %>%
+  mutate(naive_naive2i = log2(Naive/`Naive+PRC2i`)) %>%
+  mutate(primed_primed2i = log2(Primed/`Primed+PRC2i`)) %>%
+  ungroup() %>%
+  select(-(3:6)) %>%
+  pivot_longer(cols = !c(medium, histone_mark), values_to = "log2fc", names_to = "condition", values_drop_na = TRUE)
 
+histone_pval_fc <- histone_pvals %>%
+  pivot_longer(cols = !histone_mark, names_to = c("medium", "condition"), names_sep = " ", values_to = "pval") %>%
+  mutate(pval = as.numeric(pval)) %>%
+  left_join(histone_fc)
 
-
-
-
-
-
-
-
+saveRDS(histone_pval_fc, "data/histone_pval_fc.rds")
 
 
 

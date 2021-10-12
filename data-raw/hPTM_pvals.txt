@@ -1,4 +1,4 @@
-Histone mark	ENSHM Naive vs Primed	t2iLGo Naive vs Primed	PXGL Naive vs Primed	PXGL Naive vs Naive+PRC2i	PXGL Primed vs Primed+PRC2i
+histone_mark	ENHSM naive_primed	t2iLGo naive_primed	PXGL naive_primed	PXGL naive_naive2i	PXGL primed_primed2i
 H3K79me1	0.669033609	0.456928859	0.000354299	0.539186994	0.621651731
 H3K79me2	0.008383395	0.059432341	3.9431E-06	0.159554754	0.546763951
 H3K79Hib	0.328562776	N/A	N/A	N/A	N/A

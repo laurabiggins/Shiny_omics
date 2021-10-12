@@ -11,9 +11,10 @@ data_long <- readRDS("data/acid_long.rds")
 acid_pval_fc <- readRDS("data/acid_pval_fc.rds")
 genes_long <- readRDS("data/genes_long.rds")
 histone_data <- readRDS("data/histone_data.rds")
+histone_pval_fc <- readRDS("data/histone_pval_fc.rds")
 #acid_pval_fc <- readRDS("data/pval_check_temp.rds")
 
-volcano_dataset <- acid_pval_fc
+#volcano_dataset <- acid_pval_fc
 
 table_data <- dataset %>%
     rowid_to_column()
@@ -67,7 +68,14 @@ ui <- fluidPage(
         wellPanel(
           id = "volcano_panel",
           br(),
-          plotlyOutput("volcano", height = "400px")
+          plotlyOutput("volcano", height = "400px"),
+          br(),
+          radioButtons(
+            inputId = "volcano_type", 
+            label = NULL, 
+            choices = datatypes[c(4,2)], 
+            inline = TRUE
+          )
         )
       )
     )
@@ -121,8 +129,6 @@ ui <- fluidPage(
   actionButton("browser", "browser")
 )
 
-# key for data table ----
-key <- row.names(volcano_dataset)
 
 # server ----
 server <- function(input, output, session) {
@@ -133,6 +139,14 @@ server <- function(input, output, session) {
   filtered_meta <- reactiveVal()
   
   selected_ids <- reactiveValues()
+  
+  # key for data table ----
+  key <- reactive({
+    x <- volcano_dataset() %>%
+      filter(condition == "naive_primed") %>%
+      drop_na() 
+    row.names(x)
+  })
   
   ## main datatable ----
   output$pp_table <- DT::renderDataTable({
@@ -183,21 +197,40 @@ server <- function(input, output, session) {
   })
   
   
-  ## volcano plot ----
+  volcano_dataset <- reactiveVal()
   
+  observeEvent(input$volcano_type, {
+    
+    volcano_ds <- switch(input$volcano_type,
+           histones = histone_pval_fc,
+           acid_protein = acid_pval_fc)
+    
+    volcano_ds <- volcano_ds %>%
+      filter(condition == "naive_primed") %>%
+      drop_na() 
+    
+    volcano_dataset(volcano_ds)
+  })
+  
+  ## volcano plot ----
   output$volcano <- renderPlotly({
-
-    p <- volcano_dataset %>%
-          ggplot(aes(x = log2fc_naive_primed, y = -log10(Naive_vs_Primed), key = key)) + #colour = species, fill = species)) +
-            geom_point(shape = 21) +
-            theme(legend.position="none")
+    
+    p <- volcano_dataset() %>%
+      ggplot(aes(x = log2fc, y = -log10(pval), key = key())) + #colour = species, fill = species)) +
+      geom_point(shape = 21) +
+      theme(legend.position="none")
+    
+    
+    # p <- volcano_dataset() %>%
+    #       ggplot(aes(x = log2fc_naive_primed, y = -log10(Naive_vs_Primed), key = key)) + #colour = species, fill = species)) +
+    #         geom_point(shape = 21) +
+    #         theme(legend.position="none")
       
-      if(! is.null(filtered_meta()[["Accession"]])) {
-          
-          selected_subset <- volcano_dataset %>%
-             filter(Accession %in% filtered_meta()[["Accession"]])
-          #colours_needed <- plot_colours[1:nrow(selected_subset)]
+      if(! is.null(filtered_meta())) {
 
+        selected_subset <- left_join(filtered_meta(), volcano_dataset())
+        
+        if(! is.null(selected_subset)){
           p <- p + geom_point(
                     data = selected_subset,
                     aes(key = NULL),
@@ -208,8 +241,9 @@ server <- function(input, output, session) {
                     size = 3
                 )
         }
+      }
             
-        ggplotly(p)
+      ggplotly(p)
         
     })
     
@@ -295,11 +329,14 @@ server <- function(input, output, session) {
     req(d)
     row_no <- as.numeric(d$key)
     
-    selected_accessions <- volcano_dataset %>%
+    selected_accessions <- volcano_dataset() %>%
       slice(row_no) %>%
-      pull(Accession)
+      pull(1)
 
-    row_to_add <- filter(table_data, Accession == selected_accessions)
+    id_type <- colnames(volcano_dataset())[1]
+    row_to_add <- filter(table_data, .data[[id_type]] == selected_accessions)
+    
+    #row_to_add <- left_join(selected_accessions, table_data)
     
     if(is.null(filtered_meta())) {
       filtered_meta(row_to_add)
@@ -313,6 +350,7 @@ server <- function(input, output, session) {
   observeEvent(event_data("plotly_selected"), {
    
     d <- event_data("plotly_selected")
+    
     req(d)
     filtered_meta(NULL)
     row_numbers <- as.numeric(d$key)
@@ -326,11 +364,12 @@ server <- function(input, output, session) {
       row_numbers <- row_numbers[1:4]
     }
     
-    selected_accessions <- volcano_dataset %>%
+    selected_accessions <- volcano_dataset() %>%
       slice(row_numbers) %>%
-      pull(Accession)
+      pull(1)
     
-    selected_rows <- filter(table_data, Accession %in% selected_accessions)
+    id_type <- colnames(volcano_dataset())[1]
+    selected_rows <- filter(table_data, .data[[id_type]] %in% selected_accessions)
 
     filtered_meta(selected_rows)
     
@@ -409,7 +448,7 @@ server <- function(input, output, session) {
     
     req(filtered_meta()[["histone_mark"]])
     histoneUI <- mod_plotsUI("histone_panel")
-    mod_plotsServer("histone_panel", filtered_histone_dataset,  filtered_meta, id_type = "histone_mark", accession_col = "Histone mark", plot_colours, second_factor = "medium")
+    mod_plotsServer("histone_panel", filtered_histone_dataset,  filtered_meta, id_type = "histone_mark", accession_col = "histone_mark", plot_colours, second_factor = "medium")
     
     wellPanel(
       id = "histone_panel", 

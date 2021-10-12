@@ -1,4 +1,4 @@
-Accession	Naive_vs_Primed	Naive_vs_Naive+PRC2i	Primed_vs_Primed+PRC2i
+Accession	naive_primed	naive_naive2i	primed_primed2i
 H11_HUMAN	2.00E-06	0.873923233	0.026451711
 PGRC1_HUMAN	1.19E-05	NA	0.071671118
 SPB9_HUMAN	1.30E-06	0.154604005	NA
