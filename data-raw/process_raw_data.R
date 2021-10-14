@@ -22,6 +22,33 @@ acid_long <- acid_extractome %>%
 
 saveRDS(acid_long, "data/acid_long.rds")
 
+## chep data ----
+## this has got p values which I'l deal with afterwards
+chep1 <- read_tsv("data-raw/ChEP_naive_primed.txt")
+chep2 <- read_tsv("data-raw/ChEP_naive2i.txt")
+chep3 <- read_tsv("data-raw/ChEP_primed2i.txt")
+
+chep1 <- chep1 %>%
+  select(-1, -`log2 fold change`, -`p-value`) %>%
+  pivot_longer(cols = starts_with("LFQ")) %>%
+  separate(name, into = c(NA, NA, "condition", "rep"), sep = " ")
+
+chep2 <- chep2 %>%
+  select(-1, -`log2 fold change`, -`p-value`) %>%
+  pivot_longer(cols = starts_with("LFQ")) %>%
+  separate(name, into = c(NA, NA, "condition", "rep"), sep = " ")
+
+chep3 <- chep3 %>%
+  select(-1, -`log2 fold change`, -`p-value`) %>%
+  pivot_longer(cols = starts_with("LFQ")) %>%
+  separate(name, into = c(NA, NA, "condition", "rep"), sep = " ")
+
+chep_data <- bind_rows(chep1, chep2, chep3) %>%
+  distinct() %>%
+  rename(Gene_id = Gene.names)
+
+saveRDS(chep_data, "data/chep_data.rds")
+
 ## histone data ----
 
 PXGL <- read_tsv("data-raw/hPTM_PXGL.txt")
@@ -51,23 +78,40 @@ histone_data$histone_mark <- str_replace(histone_data$histone_mark, pattern = "A
 saveRDS(histone_data, "data/histone_data.rds")
 
 
-## All data types meta data processing ---- 
+## Meta - all data types ---- 
 
 acid_meta <- acid_extractome %>%
   select(Accession, Description) %>%
   separate(Description, sep = "GN=", into = c(NA, "Gene"), remove = FALSE) %>%
-  separate(Gene, sep = " ", into = c("Gene_expr_id", NA)) %>%
-  select(Accession, Gene_expr_id, Description) 
+  separate(Gene, sep = " ", into = c("Gene_id", NA)) %>%
+  select(Accession, Gene_id, Description) 
 
-# remove gene ids that don't have expression values
+
+# The only duplicated gene id in the acid dataset is NA
+sum(duplicated(acid_meta$Gene_id)) 
+acid_meta$Gene_id[duplicated(acid_meta$Gene_id)]  
+
+
+# The chep data has about 35 duplicated gene names, we can use the gene names 
+# to join the tables but we're not using the genes on the volcano plot so we don't need to worry about multiple matches.
+# We should add the gene expr data after the protein data has been sorted. 
+
+meta1 <- chep_data %>%
+  select(1:3) %>%
+  distinct() %>%
+  full_join(acid_meta)
+
+
+# add a column of gene_expr_ids that are in the gene expr dataset. 
+# We want to keep the gene_id as a reference but have a separate column that has a missing value if we don't have gene expr data for that one.
 all_gene_names <- pull(gene_expr, Gene) 
-acid_meta <- acid_meta %>%
-  mutate(Gene_expr_id = if_else(Gene_expr_id %in% all_gene_names, Gene_expr_id, ""))
+meta2 <- meta1 %>%
+  mutate(Gene_expr_id = if_else(Gene_id %in% all_gene_names, Gene_id, ""))
 
 
-# add the extra genes in to table
+# add the extra genes  from the gene_expr dataset in to the table
 genes_not_in <- tibble::enframe(
-  all_gene_names[!all_gene_names %in% acid_meta$Gene_expr_id], 
+  all_gene_names[!all_gene_names %in% meta2$Gene_expr_id], 
   name = NULL, 
   value = "Gene_expr_id"
 )
@@ -77,11 +121,13 @@ genes_to_add <- genes_not_in %>%
   mutate(Description = "") %>%
   relocate(Accession) 
 
-meta <- bind_rows(acid_meta, genes_to_add)
+meta <- bind_rows(meta2, genes_to_add)
 
+
+## add histones in to meta table
 
 histone_links <- read_tsv("data-raw/Links between histones and chromatin proteins.txt") %>%
-  rename(Gene_expr_id = `Edgelist B`) %>%
+  rename(Gene_id = `Edgelist B`) %>%
   rename("histone_mark" = `Edgelist A`)
 
 meta <- meta %>%
@@ -107,6 +153,8 @@ hist_links_matched <- histone_links %>%
 
 ## p-value processing ----
 # p-values are provided but we need log2 fc too for the volcano plot
+# 
+### acid pvalues ----
 acid_pvals <- read_tsv("data-raw/AcidExtractome_pvals.txt")
 
 fold_change <- acid_long %>%
@@ -128,7 +176,7 @@ acid_pval_fc <- acid_pvals %>%
 
 saveRDS(acid_pval_fc, "data/acid_pval_fc.rds")
 
-
+### histone_pvals ----
 histone_pvals <- read_tsv("data-raw/hPTM_pvals.txt")
 
 histone_fc <- histone_data %>%
@@ -152,9 +200,29 @@ histone_pval_fc <- histone_pvals %>%
 
 saveRDS(histone_pval_fc, "data/histone_pval_fc.rds")
 
+### chep pvalues ----
+chep1 <- read_tsv("data-raw/ChEP_naive_primed.txt")
+chep2 <- read_tsv("data-raw/ChEP_naive2i.txt")
+chep3 <- read_tsv("data-raw/ChEP_primed2i.txt")
 
+chep1_p <- chep1 %>%
+  rename(log2fc = `log2 fold change`, pval = `p-value`) %>%
+  select(Majority.protein.IDs, log2fc, pval) %>%
+  mutate (condition = "naive_primed")
 
+chep2_p <- chep2 %>%
+  rename(log2fc = `log2 fold change`, pval = `p-value`) %>%
+  select(Majority.protein.IDs, log2fc, pval) %>%
+  mutate (condition = "naive_naive2i")
 
+chep3_p <- chep3 %>%
+  rename(log2fc = `log2 fold change`, pval = `p-value`) %>%
+  select(Majority.protein.IDs, log2fc, pval) %>%
+  mutate (condition = "primed_primed2i")
+
+chep_pval_fc <- bind_rows(chep1_p, chep2_p, chep3_p)
+
+saveRDS(chep_pval_fc, "data/chep_pval_fc.rds")
 
 #this is a rough check that the values we've got match (ish) the pval dataset that's been provided - 
 #not proper way to do stats - don't use these!!
