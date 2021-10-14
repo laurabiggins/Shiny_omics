@@ -3,8 +3,8 @@ library(tidyverse)
 library(plotly)
 library(DT)
 
-# TODO: when a point is clicked, directly update the selected rows on the table,
-# maybe then just have  a selected_subset rather than all the individual selections.
+# TODO: sort out main data table
+# tool tip text on volcano plot
 
 dataset <- readRDS("data/meta.rds") #used for the DT - searching
 data_long <- readRDS("data/acid_long.rds")
@@ -12,12 +12,16 @@ acid_pval_fc <- readRDS("data/acid_pval_fc.rds")
 genes_long <- readRDS("data/genes_long.rds")
 histone_data <- readRDS("data/histone_data.rds")
 histone_pval_fc <- readRDS("data/histone_pval_fc.rds")
+chep_data <- readRDS("data/chep_data.rds")
+chep_pval_fc <- readRDS("data/chep_pval_fc.rds")
 #acid_pval_fc <- readRDS("data/pval_check_temp.rds")
 
-#volcano_dataset <- acid_pval_fc
-
 table_data <- dataset %>%
-    rowid_to_column()
+  select(-Protein.names, -Description) %>%
+  #select(-rowid, -Protein.names, -Description) %>%
+  relocate(Gene_id) %>%
+  arrange(desc(Accession)) %>%
+  rowid_to_column()
 
 
 plot_colours <- c("red3", "blue3", "green3", "orange3")
@@ -73,7 +77,15 @@ ui <- fluidPage(
           radioButtons(
             inputId = "volcano_type", 
             label = NULL, 
-            choices = datatypes[c(4,2)], 
+            choices = datatypes[c(2,4,3)], 
+            inline = TRUE
+          ),
+          radioButtons(
+            inputId = "volcano_condition_type", 
+            label = NULL, 
+            choices = list("naive vs primed" = "naive_primed", 
+                          "naive vs naive+PRC2i" = "naive_naive2i",
+                           "primed vs primed+PRC2i" = "primed_primed2i"),
             inline = TRUE
           )
         )
@@ -142,35 +154,43 @@ server <- function(input, output, session) {
   
   # key for data table ----
   key <- reactive({
-    x <- volcano_dataset() %>%
-      filter(condition == "naive_primed") %>%
-      drop_na() 
-    row.names(x)
+    row.names(volcano_dataset())
   })
   
   ## main datatable ----
   output$pp_table <- DT::renderDataTable({
-    dt_setup(
-      #table_data,
-      select(table_data, -1),
-      #lineHeight = "50%",
-      selection = "multiple",
-      dt_options = list(
-        dom = "ftip", 
-        columnDefs = list(
-          list(
-            targets = 2,
-            width = "600px",
-            render = JS(
-              "function(data, type, row, meta) {",
-              "return type === 'display' && data.length > 60 ?",
-              "'<span title=\"' + data + '\">' + data.substr(0, 60) + '...</span>' : data;",
-              "}"
-            )
-          )
-        )  
-      )
-    )
+     
+    DT::datatable(table_data)
+    
+    # DT::datatable(
+    #   table_data,
+    #   options = list(
+    #     dom = "tip",
+    #     columnDefs = list(
+    #       list(
+    #         targets = 1,
+    #         width = "50px",
+    #         render = JS(
+    #           "function(data, type, row, meta) {",
+    #           "return type === 'display' && data.length > 10 ?",
+    #           "'<span title=\"' + data + '\">' + data.substr(0, 10) + '...</span>' : data;",
+    #           "}"
+    #         )
+    #       ),
+    #       list(
+    #         targets = 2,
+    #         width = "80px",
+    #         render = JS(
+    #           "function(data, type, row, meta) {",
+    #           "return type === 'display' && data.length > 15 ?",
+    #           "'<span title=\"' + data + '\">' + data.substr(0, 15) + '...</span>' : data;",
+    #           "}"
+    #         )
+    #       )
+    #     )
+    #   )
+    # )
+                  
   })
   
   ## render filtered meta ----
@@ -183,6 +203,11 @@ server <- function(input, output, session) {
   ## dataset filters ----
   filtered_acid_dataset <- reactive({
     data_long %>%
+      filter(condition %in% input$conditions_to_display)
+  })
+  
+  filtered_chep_dataset <- reactive({
+    chep_data %>%
       filter(condition %in% input$conditions_to_display)
   })
   
@@ -199,18 +224,31 @@ server <- function(input, output, session) {
   
   volcano_dataset <- reactiveVal()
   
-  observeEvent(input$volcano_type, {
+  volcano_dataset <- reactive({
     
     volcano_ds <- switch(input$volcano_type,
-           histones = histone_pval_fc,
-           acid_protein = acid_pval_fc)
+                         histones = histone_pval_fc,
+                         acid_protein = acid_pval_fc,
+                         chr_protein = chep_pval_fc)
     
-    volcano_ds <- volcano_ds %>%
-      filter(condition == "naive_primed") %>%
+   volcano_ds %>%
+      filter(condition == input$volcano_condition_type) %>%
       drop_na() 
-    
-    volcano_dataset(volcano_ds)
   })
+  
+  # observeEvent(input$volcano_type, {
+  #   
+  #   volcano_ds <- switch(input$volcano_type,
+  #          histones = histone_pval_fc,
+  #          acid_protein = acid_pval_fc,
+  #          chr_protein = chep_pval_fc)
+  #   
+  #   volcano_ds <- volcano_ds %>%
+  #     filter(condition == "naive_primed") %>%
+  #     drop_na() 
+  #   
+  #   volcano_dataset(volcano_ds)
+  # })
   
   ## volcano plot ----
   output$volcano <- renderPlotly({
@@ -272,7 +310,7 @@ server <- function(input, output, session) {
   ### table row selections ----
   observeEvent(input$pp_table_rows_selected, ignoreNULL = FALSE, {
     
-    #browser()
+    
       
     row_numbers <- as.numeric(input$pp_table_rows_selected)
     
@@ -294,9 +332,10 @@ server <- function(input, output, session) {
   })
     
   ### update highlighted rows on table ----
-  observeEvent(filtered_meta(), ignoreNULL = FALSE, {
+  #observeEvent(filtered_meta(), ignoreNULL = FALSE, {
+  observeEvent(filtered_meta(), {
 
-    #browser()
+   # browser()
     
     if(is.null(filtered_meta())){
       selectRows(table_proxy, selected = NULL)
@@ -426,13 +465,13 @@ server <- function(input, output, session) {
     )
   })
    
-  ### protein other ----
+  ### protein chr ----
    
   output$protein_second <- renderUI({
     
     req(filtered_meta()[["Accession"]])
     protein2UI <- mod_plotsUI("protein2_panel")
-    mod_plotsServer("protein2_panel", filtered_acid_dataset, filtered_meta, id_type = "Accession", plot_colours)
+    mod_plotsServer("protein2_panel", filtered_chep_dataset, filtered_meta, id_type = "Majority.protein.IDs", accession_col = "Majority.protein.IDs", plot_colours)
     
     wellPanel(
       id = "prot_chromatin_panel", 
