@@ -2,10 +2,11 @@ library(shiny)
 library(tidyverse)
 library(plotly)
 library(DT)
-
-# TODO: sort out main data table
-# tool tip text on volcano plot
-
+library(htmlwidgets)
+# 
+# # TODO: sort out main data table
+# # tool tip text on volcano plot
+# 
 dataset <- readRDS("data/meta.rds") #used for the DT - searching
 data_long <- readRDS("data/acid_long.rds")
 acid_pval_fc <- readRDS("data/acid_pval_fc.rds")
@@ -17,11 +18,11 @@ chep_pval_fc <- readRDS("data/chep_pval_fc.rds")
 #acid_pval_fc <- readRDS("data/pval_check_temp.rds")
 
 table_data <- dataset %>%
-  select(-Protein.names, -Description) %>%
-  #select(-rowid, -Protein.names, -Description) %>%
-  relocate(Gene_id) %>%
-  arrange(desc(Accession)) %>%
-  rowid_to_column()
+ select(-Protein.names, -Description) %>%
+ #select(-rowid, -Protein.names, -Description) %>%
+ relocate(Gene_id) %>%
+ arrange(desc(Accession)) %>%
+ rowid_to_column()
 
 
 plot_colours <- c("red3", "blue3", "green3", "orange3")
@@ -31,10 +32,10 @@ conditions <- c("Naive", "Naive+PRC2i", "Primed", "Primed+PRC2i")
 acid_plot_height <- "250px"
 
 datatypes <- c(
-  "Gene expression" = "gene_expr", 
-  "Acid extractome protein abundance" = "acid_protein",
-  "Chromatin-associated protein abundance" = "chr_protein",
-  "Histone modification abundance" = "histones"
+ "Gene expression" = "gene_expr", 
+ "Acid extractome protein abundance" = "acid_protein",
+ "Chromatin-associated protein abundance" = "chr_protein",
+ "Histone modification abundance" = "histones"
 )
 
 # UI ----
@@ -68,7 +69,7 @@ ui <- fluidPage(
         )
       ),
       column(class = "volcano_padding",
-        width = 4,
+        width = 5,
         wellPanel(
           id = "volcano_panel",
           br(),
@@ -144,7 +145,9 @@ ui <- fluidPage(
 
 # server ----
 server <- function(input, output, session) {
-    
+   
+  library(DT)
+   
   table_proxy <- dataTableProxy("pp_table")
   
   hideCols(table_proxy, hide = 0)
@@ -164,23 +167,23 @@ server <- function(input, output, session) {
      
     table_data <- table_data %>% replace(is.na(.), "")
     
-    DT::datatable(
+    datatable(
       table_data,
       rownames = FALSE,
       options = list(
         dom = "tip",
         columnDefs = list(
           list(
-            targets = 3,
-            render = DT::JS(
+            targets = 2,
+            render = htmlwidgets::JS(
               "function(data, type, row, meta) {",
               "return type === 'display' && data.length > 10 ?",
               "'<span title=\"' + data + '\">' + data.substr(0, 10) + '...</span>' : data;",
               "}")
           ),
           list(
-            targets = 4,
-            render = DT::JS(
+            targets = 3,
+            render = htmlwidgets::JS(
               "function(data, type, row, meta) {",
               "return type === 'display' && data.length > 15 ?",
               "'<span title=\"' + data + '\">' + data.substr(0, 15) + '...</span>' : data;",

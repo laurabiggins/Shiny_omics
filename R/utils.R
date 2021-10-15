@@ -82,37 +82,3 @@ dt_setup <-  function(data,
 }
 
 
-dt_options <- list(
-  dom = 'fltip',
-  lengthMenu = c(5, 10, 20, 50),
-  pageLength = 10,
-  columnDefs = list(
-    list(
-      targets = c(3,4),
-      render = JS(
-        "function(data, type, row, meta) {",
-        "return type === 'display' && data.length > 15 ?",
-        "'<span title=\"' + data + '\">' + data.substr(0, 15) + '...</span>' : data;",
-        "}")
-    ),
-    list(
-      targets = 5,
-      width = "800px",
-      render = JS(
-        "function(data, type, row, meta) {",
-        "return type === 'display' && data.length > 30 ?",
-        "'<span title=\"' + data + '\">' + data.substr(0, 30) + '...</span>' : data;",
-        "}")
-    ),
-    list(
-      targets = c(3,4),
-      width = "300px"
-    ),
-    list(
-      targets = 5,
-      width = "50px"
-    )
-  )
-)
-
-
