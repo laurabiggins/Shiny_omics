@@ -147,6 +147,8 @@ server <- function(input, output, session) {
     
   table_proxy <- dataTableProxy("pp_table")
   
+  hideCols(table_proxy, hide = 0)
+  
   ## filtered datatable ----
   filtered_meta <- reactiveVal()
   
@@ -164,6 +166,7 @@ server <- function(input, output, session) {
     
     DT::datatable(
       table_data,
+      rownames = FALSE,
       options = list(
         dom = "tip",
         columnDefs = list(
@@ -348,6 +351,7 @@ server <- function(input, output, session) {
   set_ids_to_null <- function(){
     print("setting ids to null")
     filtered_meta(NULL)
+    selectRows(table_proxy, selected = NULL)
   } 
     
   ## plotly events ----

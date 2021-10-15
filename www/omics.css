@@ -19,6 +19,10 @@
   background-color: #EE6C4D;
 }
 
+#clear_table{
+  float: right !important;
+}
+
 .no_data {
   text-align: center;
   padding: 50px;
