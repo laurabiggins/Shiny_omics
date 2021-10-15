@@ -130,6 +130,8 @@ histone_links <- read_tsv("data-raw/Links between histones and chromatin protein
   rename(Gene_id = `Edgelist B`) %>%
   rename("histone_mark" = `Edgelist A`)
 
+histone_links$histone_mark <- str_replace(histone_links$histone_mark, pattern = "Ac", replacement = "ac")
+
 meta <- meta %>%
   left_join(histone_links)
 

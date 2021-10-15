@@ -68,7 +68,7 @@ ui <- fluidPage(
         )
       ),
       column(class = "volcano_padding",
-        width = 5,
+        width = 4,
         wellPanel(
           id = "volcano_panel",
           br(),
@@ -160,36 +160,32 @@ server <- function(input, output, session) {
   ## main datatable ----
   output$pp_table <- DT::renderDataTable({
      
-    DT::datatable(table_data)
+    table_data <- table_data %>% replace(is.na(.), "")
     
-    # DT::datatable(
-    #   table_data,
-    #   options = list(
-    #     dom = "tip",
-    #     columnDefs = list(
-    #       list(
-    #         targets = 1,
-    #         width = "50px",
-    #         render = JS(
-    #           "function(data, type, row, meta) {",
-    #           "return type === 'display' && data.length > 10 ?",
-    #           "'<span title=\"' + data + '\">' + data.substr(0, 10) + '...</span>' : data;",
-    #           "}"
-    #         )
-    #       ),
-    #       list(
-    #         targets = 2,
-    #         width = "80px",
-    #         render = JS(
-    #           "function(data, type, row, meta) {",
-    #           "return type === 'display' && data.length > 15 ?",
-    #           "'<span title=\"' + data + '\">' + data.substr(0, 15) + '...</span>' : data;",
-    #           "}"
-    #         )
-    #       )
-    #     )
-    #   )
-    # )
+    DT::datatable(
+      table_data,
+      options = list(
+        dom = "tip",
+        columnDefs = list(
+          list(
+            targets = 3,
+            render = DT::JS(
+              "function(data, type, row, meta) {",
+              "return type === 'display' && data.length > 10 ?",
+              "'<span title=\"' + data + '\">' + data.substr(0, 10) + '...</span>' : data;",
+              "}")
+          ),
+          list(
+            targets = 4,
+            render = DT::JS(
+              "function(data, type, row, meta) {",
+              "return type === 'display' && data.length > 15 ?",
+              "'<span title=\"' + data + '\">' + data.substr(0, 15) + '...</span>' : data;",
+              "}")
+          )
+        )
+      )
+    )
                   
   })
   
@@ -469,7 +465,7 @@ server <- function(input, output, session) {
    
   output$protein_second <- renderUI({
     
-    req(filtered_meta()[["Accession"]])
+    req(filtered_meta()[["Majority.protein.IDs"]])
     protein2UI <- mod_plotsUI("protein2_panel")
     mod_plotsServer("protein2_panel", filtered_chep_dataset, filtered_meta, id_type = "Majority.protein.IDs", accession_col = "Majority.protein.IDs", plot_colours)
     
