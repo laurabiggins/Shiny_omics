@@ -171,7 +171,7 @@ server <- function(input, output, session) {
       table_data,
       rownames = FALSE,
       options = list(
-        dom = "tip",
+        dom = "ftip",
         columnDefs = list(
           list(
             targets = 2,
