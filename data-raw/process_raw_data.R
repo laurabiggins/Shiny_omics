@@ -198,7 +198,9 @@ histone_fc <- histone_data %>%
 histone_pval_fc <- histone_pvals %>%
   pivot_longer(cols = !histone_mark, names_to = c("medium", "condition"), names_sep = " ", values_to = "pval") %>%
   mutate(pval = as.numeric(pval)) %>%
-  left_join(histone_fc)
+  filter(medium == "PXGL") %>%
+  left_join(histone_fc) %>%
+  drop_na()
 
 saveRDS(histone_pval_fc, "data/histone_pval_fc.rds")
 

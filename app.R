@@ -25,7 +25,7 @@ table_data <- dataset %>%
  rowid_to_column()
 
 
-plot_colours <- c("red3", "blue3", "green3", "orange3")
+#plot_colours <- c("red3", "blue3", "green3", "orange3")
 
 conditions <- c("Naive", "Naive+PRC2i", "Primed", "Primed+PRC2i")
 
@@ -255,17 +255,16 @@ server <- function(input, output, session) {
   ## volcano plot ----
   output$volcano <- renderPlotly({
     
+    first_col <- colnames(volcano_dataset())[1]
+    
     p <- volcano_dataset() %>%
-      ggplot(aes(x = log2fc, y = -log10(pval), key = key())) + #colour = species, fill = species)) +
-      geom_point(shape = 21) +
+      ggplot(aes(x = log2fc, y = -log10(pval), key = key(), label = .data[[first_col]])) + #colour = species, fill = species)) +
+      geom_point(shape = 20) +
+      geom_hline(yintercept = -log10(0.05), col = "red", linetype = "dashed") +
+      geom_vline(xintercept = c(-1,1), linetype = "dashed", col = "darkgray") +
+      #geom_vline(xintercept = 0, linetype = "dashed", col = "grey") +
       theme(legend.position="none")
     
-    
-    # p <- volcano_dataset() %>%
-    #       ggplot(aes(x = log2fc_naive_primed, y = -log10(Naive_vs_Primed), key = key)) + #colour = species, fill = species)) +
-    #         geom_point(shape = 21) +
-    #         theme(legend.position="none")
-      
       if(! is.null(filtered_meta())) {
 
         selected_subset <- left_join(filtered_meta(), volcano_dataset())
@@ -283,7 +282,7 @@ server <- function(input, output, session) {
         }
       }
             
-      ggplotly(p)
+      ggplotly(p, tooltip = "label")
         
     })
     
@@ -440,7 +439,7 @@ server <- function(input, output, session) {
       
         req(filtered_meta()$Gene_expr_id)
         gene_exprUI <- mod_plotsUI("gene_expr_panel")
-        mod_plotsServer("gene_expr_panel", filtered_gene_dataset,  filtered_meta, id_type = "Gene_expr_id", plot_colours)
+        mod_plotsServer("gene_expr_panel", filtered_gene_dataset,  filtered_meta, id_type = "Gene_expr_id")
         
         wellPanel(
           id = "gene_expr_panel", 
@@ -458,7 +457,7 @@ server <- function(input, output, session) {
       
     req(filtered_meta()[["Accession"]])
     protein1UI <- mod_plotsUI("protein1_panel")
-    mod_plotsServer("protein1_panel", filtered_acid_dataset,  filtered_meta, id_type = "Accession", plot_colours)
+    mod_plotsServer("protein1_panel", filtered_acid_dataset,  filtered_meta, id_type = "Accession")
   
     wellPanel(
       id = "prot_acid_panel", 
@@ -474,7 +473,7 @@ server <- function(input, output, session) {
     
     req(filtered_meta()[["Majority.protein.IDs"]])
     protein2UI <- mod_plotsUI("protein2_panel")
-    mod_plotsServer("protein2_panel", filtered_chep_dataset, filtered_meta, id_type = "Majority.protein.IDs", accession_col = "Majority.protein.IDs", plot_colours)
+    mod_plotsServer("protein2_panel", filtered_chep_dataset, filtered_meta, id_type = "Majority.protein.IDs", accession_col = "Majority.protein.IDs")
     
     wellPanel(
       id = "prot_chromatin_panel", 
@@ -490,7 +489,7 @@ server <- function(input, output, session) {
     
     req(filtered_meta()[["histone_mark"]])
     histoneUI <- mod_plotsUI("histone_panel")
-    mod_plotsServer("histone_panel", filtered_histone_dataset,  filtered_meta, id_type = "histone_mark", accession_col = "histone_mark", plot_colours, second_factor = "medium")
+    mod_plotsServer("histone_panel", filtered_histone_dataset,  filtered_meta, id_type = "histone_mark", accession_col = "histone_mark", second_factor = "medium")
     
     wellPanel(
       id = "histone_panel", 

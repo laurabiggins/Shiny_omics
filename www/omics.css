@@ -3,6 +3,7 @@
   border: 3px solid #888;
 }
 
+/*
 #gene_expr_panel {
   background-color: #6BDBD0;
 }
@@ -18,9 +19,19 @@
 #histone_panel {
   background-color: #EE6C4D;
 }
+*/
 
 #clear_table{
   float: right !important;
+}
+
+#naive{
+ color: #7EC247;
+}
+
+#primed{
+  color:#53A2DA;
+  
 }
 
 .no_data {
