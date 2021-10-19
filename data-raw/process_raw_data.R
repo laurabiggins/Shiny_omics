@@ -45,7 +45,8 @@ chep3 <- chep3 %>%
 
 chep_data <- bind_rows(chep1, chep2, chep3) %>%
   distinct() %>%
-  rename(Gene_id = Gene.names)
+  rename(Gene_id = Gene.names) %>%
+  drop_na(Gene_id)
 
 saveRDS(chep_data, "data/chep_data.rds")
 
@@ -74,54 +75,103 @@ histone_data <- bind_rows(
 histone_data <- dplyr::rename(histone_data, histone_mark = `Histone mark`)
 histone_data$histone_mark <- str_replace(histone_data$histone_mark, pattern = "Ac", replacement = "ac")
 
-
 saveRDS(histone_data, "data/histone_data.rds")
 
 
 ## Meta - all data types ---- 
+# we'll join by gene name
+all_gene_expr_names <- pull(gene_expr, Gene) 
 
 acid_meta <- acid_extractome %>%
   select(Accession, Description) %>%
   separate(Description, sep = "GN=", into = c(NA, "Gene"), remove = FALSE) %>%
   separate(Gene, sep = " ", into = c("Gene_id", NA)) %>%
-  select(Accession, Gene_id, Description) 
+  select(Accession, Gene_id, Description) %>%
+  drop_na(Gene_id)
 
+sum(acid_meta$Gene_id %in% all_gene_expr_names)
+sum(!acid_meta$Gene_id %in% all_gene_expr_names)
+View(acid_meta[!acid_meta$Gene_id %in% all_gene_expr_names,])
 
-# The only duplicated gene id in the acid dataset is NA
-sum(duplicated(acid_meta$Gene_id)) 
-acid_meta$Gene_id[duplicated(acid_meta$Gene_id)]  
+# Functions for splitting up gene ids to check for matches.
+# This isn't needed for the acid dataset as there are not multiple gene ids, but it is needed for the Chep data
+which_match <- function(id){
+  #split the id in case there are multiple ids
+  if(sum(str_detect(all_gene_expr_names, id)) == 0) return (NA)
+  else return(id)
+  #else which(str_detect(all_gene_expr_names, id))
+}
+gene_match <- function(id){
+  print(all_gene_expr_names[str_detect(all_gene_expr_names, id)])
+}
+
+which_multi <- function(id){
+  ids <- str_split(id, ";")[[1]]
+  matches <- unlist(map(ids, which_match))
+  matches[!is.na(matches)][1]
+}
+
+unmatched <- acid_meta$Gene_id[!acid_meta$Gene_id %in% all_gene_expr_names]
+unmatched_acid_ids <- acid_meta[!acid_meta$Gene_id %in% all_gene_expr_names,]
+write_tsv(unmatched_acid_ids, file = "unmatched_acid_ids.txt") # write out the set of unmatched acid gene ids
+
+# No duplicated gene ids in the acid dataset
+#sum(duplicated(acid_meta$Gene_id)) 
 
 
 # The chep data has about 35 duplicated gene names, we can use the gene names 
 # to join the tables but we're not using the genes on the volcano plot so we don't need to worry about multiple matches.
 # We should add the gene expr data after the protein data has been sorted. 
+chep_wide_ids <- chep_data %>%
+  select(Majority.protein.IDs, Protein.names, Gene_id) %>%
+  distinct() 
 
-meta1 <- chep_data %>%
-  select(1:3) %>%
-  distinct() %>%
-  full_join(acid_meta)
+n_distinct(chep_wide_ids$Majority.protein.IDs)
+n_distinct(chep_wide_ids$Protein.names)
+n_distinct(chep_wide_ids$Gene_id)
 
+# The majority protein_ids are unique so we'll use those for identifying the ChEP data.
+# Have a look at the dup genes
+chep_wide_ids$Gene_id[duplicated(chep_wide_ids$Gene_id)] # quite a few NAs here, that's not much good.
+dups <- chep_wide_ids[duplicated(chep_wide_ids$Gene_id),]
+
+# there are a lot of multiple gene names in the Chep ids so we'll need to separate them and
+# see which ones match
+
+
+
+# this takes a while so don't keep re-running it, but it does work quite nicely
+# matched_gene_id <- map_chr(chep_wide_ids$Gene_id, which_multi)
+
+
+chep_wide <- chep_wide_ids %>%
+  rename(gene_id_chep = Gene_id) %>%
+  mutate(matched_gene_id = matched_gene_id) %>%
+  mutate(Gene_id = if_else(matched_gene_id %in% all_gene_expr_names, matched_gene_id, NA_character_)) %>%
+  select(-matched_gene_id)
+  
+unmatched_chep_ids <- chep_wide %>%
+  filter(is.na(Gene_id)) %>%
+  select(-Gene_id)
+
+
+# I've looked at the unmatched set and I don't think I can do anymore matching with this
+# it'll need some manual input to find any more matches
+write_tsv(unmatched_chep_ids, file = "unmatched_chep_ids.txt")
+
+
+# join acid to chep, then gene_expr, then histones
+meta1 <- full_join(acid_meta, chep_wide)
+  
 
 # add a column of gene_expr_ids that are in the gene expr dataset. 
 # We want to keep the gene_id as a reference but have a separate column that has a missing value if we don't have gene expr data for that one.
-all_gene_names <- pull(gene_expr, Gene) 
-meta2 <- meta1 %>%
-  mutate(Gene_expr_id = if_else(Gene_id %in% all_gene_names, Gene_id, ""))
+gene_set <- gene_expr %>%
+  select(Gene) %>%
+  rename(Gene_expr_id = Gene) %>%
+  mutate(Gene_id = Gene_expr_id)
 
-
-# add the extra genes  from the gene_expr dataset in to the table
-genes_not_in <- tibble::enframe(
-  all_gene_names[!all_gene_names %in% meta2$Gene_expr_id], 
-  name = NULL, 
-  value = "Gene_expr_id"
-)
-
-genes_to_add <- genes_not_in %>%
-  mutate(Accession = "") %>%
-  mutate(Description = "") %>%
-  relocate(Accession) 
-
-meta <- bind_rows(meta2, genes_to_add)
+meta2 <- full_join(meta1, gene_set)
 
 
 ## add histones in to meta table
@@ -132,9 +182,7 @@ histone_links <- read_tsv("data-raw/Links between histones and chromatin protein
 
 histone_links$histone_mark <- str_replace(histone_links$histone_mark, pattern = "Ac", replacement = "ac")
 
-meta <- meta %>%
-  left_join(histone_links)
-
+meta <- full_join(meta2, histone_links)
 
 saveRDS(meta, "data/meta.rds")
 
