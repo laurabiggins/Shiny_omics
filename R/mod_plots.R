@@ -86,14 +86,17 @@ mod_plotsServer <- function(id, data_long, selected_ids, id_type, plot_colours =
     acid_boxplot <- function(data, title, box_colour, second_factor = FALSE){
 
       if(isTruthy(second_factor)){
-        ggplot(data, aes(x = condition, y = value, colour = .data[[second_factor]])) +
-          geom_boxplot(fill = box_colour, lwd = 1.5, fatten = 0.5) +
+        ggplot(data, aes(x = condition, y = value, fill = condition, colour = .data[[second_factor]])) +
+          geom_boxplot(lwd = 1.2, fatten = 0.5) +
           xlab("") +
+          scale_fill_manual(values = c("#7EC247", "#53A2DA")) +
+          scale_colour_manual(values = c("black", "red4", "blue4")) +
           ggtitle(title)
       } else {
-        ggplot(data, aes(x = condition, y = value)) +
-          geom_boxplot(fill = box_colour) +
+        ggplot(data, aes(x = condition, y = value, fill = condition)) +
+          geom_boxplot() +
           xlab("") +
+          scale_fill_manual(values = c("#7EC247", "#53A2DA")) +
           ggtitle(title)
       }
     }

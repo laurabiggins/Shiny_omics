@@ -28,6 +28,7 @@ table_data <- dataset %>%
 #plot_colours <- c("red3", "blue3", "green3", "orange3")
 
 conditions <- c("Naive", "Naive+PRC2i", "Primed", "Primed+PRC2i")
+histone_media <- c("PXGL", "ENHSM", "t2iLGo")
 
 acid_plot_height <- "250px"
 
@@ -220,7 +221,8 @@ server <- function(input, output, session) {
   
   filtered_histone_dataset <- reactive({
     histone_data %>%
-      filter(condition %in% input$conditions_to_display)
+      filter(condition %in% input$conditions_to_display) %>%
+      filter(medium %in% input$histone_media)
   })
   
   
@@ -495,7 +497,9 @@ server <- function(input, output, session) {
       id = "histone_panel", 
       class = "plot_panel",
       h2("Histone abundance", class = "panel_title"),
-      histoneUI
+      histoneUI,
+      checkboxGroupInput(inputId = "histone_media", label = "", inline = TRUE, 
+                         choices = histone_media, selected = histone_media[1])
     )
     
   })
