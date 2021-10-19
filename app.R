@@ -18,12 +18,18 @@ chep_pval_fc <- readRDS("data/chep_pval_fc.rds")
 #acid_pval_fc <- readRDS("data/pval_check_temp.rds")
 
 table_data <- dataset %>%
- select(-Protein.names, -Description) %>%
+ #select(-Protein.names, -Description) %>%
  #select(-rowid, -Protein.names, -Description) %>%
  relocate(Gene_id) %>%
  arrange(desc(Accession)) %>%
  rowid_to_column()
 
+gene_id_table <- table_data %>%
+  mutate(`acid extractome` = if_else(!is.na(Accession), "data available", "no data")) %>%
+  mutate(chep = if_else(!is.na(Majority.protein.IDs), "data available", "no data")) %>%
+  mutate(`gene expr` = if_else(!is.na(Gene_expr_id), "data available", "no data")) %>%
+  mutate(histone = if_else(!is.na(histone_mark), "data available", "no data")) %>%
+  select(rowid, Gene_id, `acid extractome`:last_col(), Accession, Majority.protein.IDs, gene_id_chep, histone_mark, Description)
 
 #plot_colours <- c("red3", "blue3", "green3", "orange3")
 
@@ -59,7 +65,7 @@ ui <- fluidPage(
   wellPanel(id = "table_volcano_panel",
     fluidRow(
       column(class = "table_padding",
-        width = 7,
+        width = 6,
         wellPanel(
           id = "table_panel", 
           actionButton("clear_table", label = "Clear table selections"),
@@ -70,7 +76,7 @@ ui <- fluidPage(
         )
       ),
       column(class = "volcano_padding",
-        width = 5,
+        width = 6,
         wellPanel(
           id = "volcano_panel",
           br(),
@@ -151,7 +157,7 @@ server <- function(input, output, session) {
    
   table_proxy <- dataTableProxy("pp_table")
   
-  hideCols(table_proxy, hide = 0)
+  hideCols(table_proxy, hide = c(0, 6:10))
   
   ## filtered datatable ----
   filtered_meta <- reactiveVal()
@@ -165,41 +171,24 @@ server <- function(input, output, session) {
   
   ## main datatable ----
   output$pp_table <- DT::renderDataTable({
-     
-    table_data <- table_data %>% replace(is.na(.), "")
-    
+
     datatable(
-      table_data,
+      gene_id_table, 
       rownames = FALSE,
-      options = list(
-        dom = "ftip",
-        columnDefs = list(
-          list(
-            targets = 2,
-            render = htmlwidgets::JS(
-              "function(data, type, row, meta) {",
-              "return type === 'display' && data.length > 10 ?",
-              "'<span title=\"' + data + '\">' + data.substr(0, 10) + '...</span>' : data;",
-              "}")
-          ),
-          list(
-            targets = 3,
-            render = htmlwidgets::JS(
-              "function(data, type, row, meta) {",
-              "return type === 'display' && data.length > 15 ?",
-              "'<span title=\"' + data + '\">' + data.substr(0, 15) + '...</span>' : data;",
-              "}")
-          )
-        )
-      )
-    )
-                  
+      options = list(dom = "ftip", pageLength = 15)
+    ) %>% 
+      formatStyle(
+        c('acid extractome', 'chep', 'gene expr', 'histone'),
+        backgroundColor = styleEqual(c("data available", "no data"), c('#B5E3D9', '#CFCCC9')),
+        `font-size` = '60%'
+      ) %>% formatStyle(0, target = 'row', lineHeight = '50%')
+      
   })
   
   ## render filtered meta ----
   output$selected_table <- DT::renderDataTable({
     req(filtered_meta())
-    dt_setup(filtered_meta())
+    dt_setup(filtered_meta() %>% select(Gene_id, Description, histone_mark))
   })
   
   
@@ -235,9 +224,20 @@ server <- function(input, output, session) {
                          acid_protein = acid_pval_fc,
                          chr_protein = chep_pval_fc)
     
+  # this doesn't need to be in the reactive - extract it!!  
+    column <- switch(input$volcano_type,
+                     histones = "histone_mark",
+                     acid_protein = "Accession",
+                     chr_protein = "Majority.protein.IDs")
+    
+    gene_ids <- gene_id_table %>%
+      select(.data[[column]], Gene_id) %>%
+      drop_na() 
+    
    volcano_ds %>%
       filter(condition == input$volcano_condition_type) %>%
-      drop_na() 
+      drop_na() %>%
+      left_join(gene_ids)
   })
   
   # observeEvent(input$volcano_type, {
@@ -260,7 +260,7 @@ server <- function(input, output, session) {
     first_col <- colnames(volcano_dataset())[1]
     
     p <- volcano_dataset() %>%
-      ggplot(aes(x = log2fc, y = -log10(pval), key = key(), label = .data[[first_col]])) + #colour = species, fill = species)) +
+      ggplot(aes(x = log2fc, y = -log10(pval), key = key(), text = Gene_id, label = .data[[first_col]])) + #colour = species, fill = species)) +
       geom_point(shape = 20) +
       geom_hline(yintercept = -log10(0.05), col = "red", linetype = "dashed") +
       geom_vline(xintercept = c(-1,1), linetype = "dashed", col = "darkgray") +
@@ -284,7 +284,7 @@ server <- function(input, output, session) {
         }
       }
             
-      ggplotly(p, tooltip = "label")
+      ggplotly(p, tooltip = c("label", "Gene_id"))
         
     })
     
@@ -323,12 +323,12 @@ server <- function(input, output, session) {
       set_ids_to_null()
     } else {
         if(length(row_numbers) > 4){
-          shinyalert::shinyalert(title = "", text = "Maximum of 4 rows of data will be shown.")
+          shinyalert::shinyalert(title = "", text = "Maximum of 4 rows of data will be shown. \n Clear row selections using the button above the table or by double clicking on an empty area of the plot.")
           row_numbers <- row_numbers[1:4]
+          selectRows(table_proxy, selected = row_numbers)
         } 
-      
-        selected_rows <- slice(table_data, row_numbers)
         
+        selected_rows <- slice(table_data, row_numbers)
         filtered_meta(selected_rows)
         
     }
