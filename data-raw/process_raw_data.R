@@ -113,7 +113,7 @@ which_multi <- function(id){
 
 unmatched <- acid_meta$Gene_id[!acid_meta$Gene_id %in% all_gene_expr_names]
 unmatched_acid_ids <- acid_meta[!acid_meta$Gene_id %in% all_gene_expr_names,]
-write_tsv(unmatched_acid_ids, file = "unmatched_acid_ids.txt") # write out the set of unmatched acid gene ids
+#write_tsv(unmatched_acid_ids, file = "unmatched_acid_ids.txt") # write out the set of unmatched acid gene ids
 
 # No duplicated gene ids in the acid dataset
 #sum(duplicated(acid_meta$Gene_id)) 
@@ -146,9 +146,7 @@ dups <- chep_wide_ids[duplicated(chep_wide_ids$Gene_id),]
 
 chep_wide <- chep_wide_ids %>%
   rename(gene_id_chep = Gene_id) %>%
-  mutate(matched_gene_id = matched_gene_id) %>%
-  mutate(Gene_id = if_else(matched_gene_id %in% all_gene_expr_names, matched_gene_id, NA_character_)) %>%
-  select(-matched_gene_id)
+  mutate(Gene_id = if_else(gene_id_chep %in% all_gene_expr_names, gene_id_chep, NA_character_)) 
   
 unmatched_chep_ids <- chep_wide %>%
   filter(is.na(Gene_id)) %>%
@@ -157,11 +155,11 @@ unmatched_chep_ids <- chep_wide %>%
 
 # I've looked at the unmatched set and I don't think I can do anymore matching with this
 # it'll need some manual input to find any more matches
-write_tsv(unmatched_chep_ids, file = "unmatched_chep_ids.txt")
+#write_tsv(unmatched_chep_ids, file = "unmatched_chep_ids.txt")
 
 
 # join acid to chep, then gene_expr, then histones
-meta1 <- full_join(acid_meta, chep_wide)
+meta1 <- full_join(acid_meta, chep_wide, na_matches = "never")
   
 
 # add a column of gene_expr_ids that are in the gene expr dataset. 
@@ -171,7 +169,7 @@ gene_set <- gene_expr %>%
   rename(Gene_expr_id = Gene) %>%
   mutate(Gene_id = Gene_expr_id)
 
-meta2 <- full_join(meta1, gene_set)
+meta2 <- full_join(meta1, gene_set, na_matches = "never")
 
 
 ## add histones in to meta table
@@ -182,7 +180,14 @@ histone_links <- read_tsv("data-raw/Links between histones and chromatin protein
 
 histone_links$histone_mark <- str_replace(histone_links$histone_mark, pattern = "Ac", replacement = "ac")
 
-meta <- full_join(meta2, histone_links)
+# also add any histones that aren't in this file.
+all_histones <- histone_data %>%
+  select(histone_mark) %>%
+  distinct() %>%
+  left_join(histone_links)
+
+
+meta <- full_join(meta2, all_histones, na_matches = "never")
 
 saveRDS(meta, "data/meta.rds")
 
@@ -273,6 +278,10 @@ chep3_p <- chep3 %>%
   mutate (condition = "primed_primed2i")
 
 chep_pval_fc <- bind_rows(chep1_p, chep2_p, chep3_p)
+
+# these pvalues ahve already been -log10 transformed so I'm changing them back 
+# in line with the other data types
+chep_pval_fc <- mutate(chep_pval_fc, pval = 10^-pval)
 
 saveRDS(chep_pval_fc, "data/chep_pval_fc.rds")
 
