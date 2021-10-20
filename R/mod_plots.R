@@ -1,4 +1,4 @@
-browser_buttons <- TRUE
+browser_buttons <- FALSE
 ## Try just having one layout!!
 
 mod_plotsUI <- function(id){
