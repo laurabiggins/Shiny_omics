@@ -7,6 +7,8 @@ library(htmlwidgets)
 # # TODO: sort out main data table
 # # tool tip text on volcano plot
 # 
+browser_buttons <- FALSE
+# 
 dataset <- readRDS("data/meta.rds") #used for the DT - searching
 data_long <- readRDS("data/acid_long.rds")
 acid_pval_fc <- readRDS("data/acid_pval_fc.rds")
@@ -28,7 +30,7 @@ gene_id_table <- table_data %>%
   mutate(`acid extractome` = if_else(!is.na(Accession), "data available", "no data")) %>%
   mutate(chep = if_else(!is.na(Majority.protein.IDs), "data available", "no data")) %>%
   mutate(`gene expr` = if_else(!is.na(Gene_expr_id), "data available", "no data")) %>%
-  mutate(histone = if_else(!is.na(histone_mark), "data available", "no data")) %>%
+  mutate(histone = if_else(!is.na(histone_mark), histone_mark, "no data")) %>%
   select(rowid, Gene_id, `acid extractome`:last_col(), Accession, Majority.protein.IDs, gene_id_chep, histone_mark, Description)
 
 #plot_colours <- c("red3", "blue3", "green3", "orange3")
@@ -49,6 +51,7 @@ datatypes <- c(
 ui <- fluidPage(
 
   shinyalert::useShinyalert(),
+  shinyjs::useShinyjs(),
   tags$head(
     tags$link(rel = "stylesheet", type = "text/css", href = "omics.css")
   ),
@@ -58,11 +61,12 @@ ui <- fluidPage(
     titlePanel("Chromatin and histone proteomics of human pluripotent states"),
     h3("Integrated Multi-Omics Analyses Reveal Polycomb Repressive Complex 2
   Restricts Naive Human Pluripotent Stem Cell to Trophoblast Fate Induction"),
-    h4("Zijlmans, Talon, Verhelst, Bendall et al."),
-    br()
+    h4("Zijlmans, Talon, Verhelst, Bendall et al.")
   ),
   ## table and volcano panel ----
   wellPanel(id = "table_volcano_panel",
+            h5(" Explore the datasets associated with this paper by searching the table or browsing the points in the volcano plot. To search the table, enter a gene name, protein name or ID, or histone mark. Select up to 4 IDs to view the data in plots below."),
+            h5("Selections can also be made by clicking on points in the volcano plot. The subset of selected IDs can be viewed by switching to the 'selected' tab below."),
     fluidRow(
       column(class = "table_padding",
         width = 6,
@@ -70,7 +74,9 @@ ui <- fluidPage(
           id = "table_panel", 
           actionButton("clear_table", label = "Clear table selections"),
           tabsetPanel(
-            tabPanel("all", DT::dataTableOutput("pp_table")),
+            tabPanel("all", 
+                     br(),
+                     DT::dataTableOutput("pp_table")),
             tabPanel("selected", br(), DT::dataTableOutput("selected_table"))
           )
         )
@@ -79,8 +85,6 @@ ui <- fluidPage(
         width = 6,
         wellPanel(
           id = "volcano_panel",
-          br(),
-          plotlyOutput("volcano", height = "400px"),
           br(),
           radioButtons(
             inputId = "volcano_type", 
@@ -95,7 +99,9 @@ ui <- fluidPage(
                           "naive vs naive+PRC2i" = "naive_naive2i",
                            "primed vs primed+PRC2i" = "primed_primed2i"),
             inline = TRUE
-          )
+          ),
+          br(),
+          plotlyOutput("volcano", height = "400px")
         )
       )
     )
@@ -146,7 +152,7 @@ ui <- fluidPage(
       inline = TRUE
   ),
   br(),
-  actionButton("browser", "browser")
+  if(browser_buttons) actionButton("browser", "browser")
 )
 
 
@@ -175,11 +181,11 @@ server <- function(input, output, session) {
     datatable(
       gene_id_table, 
       rownames = FALSE,
-      options = list(dom = "ftip", pageLength = 15)
+      options = list(dom = "ftip", pageLength = 13)
     ) %>% 
       formatStyle(
         c('acid extractome', 'chep', 'gene expr', 'histone'),
-        backgroundColor = styleEqual(c("data available", "no data"), c('#B5E3D9', '#CFCCC9')),
+        backgroundColor = styleEqual(levels = "no data", values = '#CFCCC9', default = '#B5E3D9'),
         `font-size` = '60%'
       ) %>% formatStyle(0, target = 'row', lineHeight = '50%')
       
@@ -194,21 +200,32 @@ server <- function(input, output, session) {
   
   ## dataset filters ----
   filtered_acid_dataset <- reactive({
+    
+    # put all this in the pre-processing!!
+    column <- "Accession"
+    gene_ids <- gene_id_table %>%
+      select(.data[[column]], Gene_id) %>%
+      drop_na() 
+    
     data_long %>%
-      filter(condition %in% input$conditions_to_display)
+      filter(condition %in% input$conditions_to_display) %>%
+      left_join(gene_ids)
   })
   
   filtered_chep_dataset <- reactive({
+    
     chep_data %>%
       filter(condition %in% input$conditions_to_display)
   })
   
   filtered_gene_dataset <- reactive({
+    
     genes_long %>%
       filter(condition %in% input$conditions_to_display)
   })
   
   filtered_histone_dataset <- reactive({
+
     histone_data %>%
       filter(condition %in% input$conditions_to_display) %>%
       filter(medium %in% input$histone_media)
@@ -385,8 +402,13 @@ server <- function(input, output, session) {
       filtered_meta(row_to_add)
     } else if (nrow(filtered_meta()) < 4) {
       filtered_meta(bind_rows(filtered_meta(), row_to_add))
-    }  
-
+    } else if (nrow(filtered_meta()) == 4){
+      shinyalert::shinyalert(
+        title = "",
+        text = "Maximum of 4 data points will be shown. \n
+         Double click on an empty area of the plot to deselect all."
+      )
+    } 
   })
 
   # this wipes out other selections at the moment  
@@ -434,6 +456,7 @@ server <- function(input, output, session) {
         wellPanel(
           id = "gene_expr_panel", 
           class = "plot_panel",
+         # actionButton("close_gene_panel", label = NULL, icon = icon("window-close"), class = "close_panel"),
           h2("Gene expression", class = "panel_title"),
           p(class = "no_data", "No data for selected genes")
         )
@@ -441,7 +464,7 @@ server <- function(input, output, session) {
       
         req(filtered_meta()$Gene_expr_id)
         gene_exprUI <- mod_plotsUI("gene_expr_panel")
-        mod_plotsServer("gene_expr_panel", filtered_gene_dataset,  filtered_meta, id_type = "Gene_expr_id")
+        mod_plotsServer("gene_expr_panel", filtered_gene_dataset,  filtered_meta, id_type = "Gene_expr_id", title_id = "Accession")
         
         wellPanel(
           id = "gene_expr_panel", 
@@ -452,56 +475,97 @@ server <- function(input, output, session) {
       }
     }  
   }) 
+ 
+  # This works but it stops the flow of the fluidRow elements. I think to make it work beeter, the javascript for the conditional panel should include an argument triggered by a close button. 
+#  observeEvent(input$close_gene_panel, {
+#    shinyjs::hideElement("gene_expr")
+#  })
+  
    
   ### protein acid ----
    
   output$protein1 <- renderUI({
+     
+    if(!is.null(filtered_meta()[["Accession"]])){
+      if(!isTruthy(filtered_meta()[["Accession"]])){
+        wellPanel(
+          id = "prot_acid_panel", 
+          class = "plot_panel",
+          h2("Acid extractome protein abundance", class = "panel_title"),
+          p(class = "no_data", "No data for selected genes")
+        )
+      } else {
+        req(filtered_meta()[["Accession"]])
+        protein1UI <- mod_plotsUI("protein1_panel")
+        mod_plotsServer("protein1_panel", filtered_acid_dataset,  filtered_meta, id_type = "Accession")
       
-    req(filtered_meta()[["Accession"]])
-    protein1UI <- mod_plotsUI("protein1_panel")
-    mod_plotsServer("protein1_panel", filtered_acid_dataset,  filtered_meta, id_type = "Accession")
-  
-    wellPanel(
-      id = "prot_acid_panel", 
-      class = "plot_panel",
-      h2("Acid extractome protein abundance", class = "panel_title"),
-      protein1UI
-    )
+        wellPanel(
+          id = "prot_acid_panel", 
+          class = "plot_panel",
+          h2("Acid extractome protein abundance", class = "panel_title"),
+          protein1UI
+        )
+      }
+    }
   })
    
   ### protein chr ----
    
   output$protein_second <- renderUI({
     
-    req(filtered_meta()[["Majority.protein.IDs"]])
-    protein2UI <- mod_plotsUI("protein2_panel")
-    mod_plotsServer("protein2_panel", filtered_chep_dataset, filtered_meta, id_type = "Majority.protein.IDs", accession_col = "Majority.protein.IDs")
-    
-    wellPanel(
-      id = "prot_chromatin_panel", 
-      class = "plot_panel",
-      h2("Chromatin protein abundance", class = "panel_title"),
-      protein2UI
-    )
+    if(!is.null(filtered_meta()[["Majority.protein.IDs"]])){
+      if(!isTruthy(filtered_meta()[["Majority.protein.IDs"]])){
+        wellPanel(
+          id = "prot_chromatin_panel", 
+          class = "plot_panel",
+          h2("Chromatin protein abundance", class = "panel_title"),
+          p(class = "no_data", "No data for selected genes")
+        )
+      } else {
+        req(filtered_meta()[["Majority.protein.IDs"]])
+        protein2UI <- mod_plotsUI("protein2_panel")
+        mod_plotsServer("protein2_panel", filtered_chep_dataset, filtered_meta, id_type = "Majority.protein.IDs", accession_col = "Majority.protein.IDs")
+        
+        wellPanel(
+          id = "prot_chromatin_panel", 
+          class = "plot_panel",
+          h2("Chromatin protein abundance", class = "panel_title"),
+          protein2UI
+        )
+      }
+    }
   })
    
   ### histones ----
    
   output$histones <- renderUI({
     
-    req(filtered_meta()[["histone_mark"]])
-    histoneUI <- mod_plotsUI("histone_panel")
-    mod_plotsServer("histone_panel", filtered_histone_dataset,  filtered_meta, id_type = "histone_mark", accession_col = "histone_mark", second_factor = "medium")
+    if(!is.null(filtered_meta()[["histone_mark"]])){
+      if(!isTruthy(filtered_meta()[["histone_mark"]])){
+        wellPanel(
+          id = "histone_panel", 
+          class = "plot_panel",
+          h2("Histone abundance", class = "panel_title"),
+          p(class = "no_data", "No data for selected histone marks")
+        )
+      } else {
     
-    wellPanel(
-      id = "histone_panel", 
-      class = "plot_panel",
-      h2("Histone abundance", class = "panel_title"),
-      histoneUI,
-      checkboxGroupInput(inputId = "histone_media", label = "", inline = TRUE, 
-                         choices = histone_media, selected = histone_media[1])
-    )
-    
+        req(filtered_meta()[["histone_mark"]])
+        histoneUI <- mod_plotsUI("histone_panel")
+        mod_plotsServer("histone_panel", filtered_histone_dataset,  filtered_meta, id_type = "histone_mark", accession_col = "histone_mark", second_factor = "medium", title_id = "histone_mark")
+        
+        wellPanel(
+          id = "histone_panel", 
+          class = "plot_panel",
+          h2("Histone abundance", class = "panel_title"),
+          histoneUI,
+          br(),
+          p("If a plot is blank, histone data may only be available for a different medium."),
+          checkboxGroupInput(inputId = "histone_media", label = NULL, inline = TRUE, 
+                             choices = histone_media, selected = histone_media[1])
+        )
+      }
+    }
   })
         
   observeEvent(input$browser, browser())

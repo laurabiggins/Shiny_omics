@@ -1,4 +1,4 @@
-
+browser_buttons <- FALSE
 ## Try just having one layout!!
 
 mod_plotsUI <- function(id){
@@ -7,12 +7,12 @@ mod_plotsUI <- function(id){
   
   tagList(
       uiOutput(ns("plot_panel"), class = "plot_box"),
-      actionButton(ns("browser"), "browser")
+      if(browser_buttons) actionButton(ns("browser"), "browser")
   )  
       
 }
 
-mod_plotsServer <- function(id, data_long, selected_ids, id_type, plot_colours = c("#7EC247","#53A2DA"), second_factor = FALSE, accession_col = "Accession", plot_height = "200px") {
+mod_plotsServer <- function(id, data_long, selected_ids, id_type, title_id = "Gene_id", plot_colours = c("#7EC247","#53A2DA"), second_factor = FALSE, accession_col = "Accession", plot_height = "200px") {
   moduleServer(id, function(input, output, session) {
     
     ns_server <- NS(id)
@@ -109,7 +109,9 @@ mod_plotsServer <- function(id, data_long, selected_ids, id_type, plot_colours =
       data_filt <- data_long() %>%
         filter(.data[[accession_col]] == id)
       
-      acid_boxplot(data_filt, id, plot_colours, second_factor = second_factor)
+      plot_title <- pull(data_filt, .data[[title_id]])[1]
+      
+      acid_boxplot(data_filt, title = plot_title, plot_colours, second_factor = second_factor)
         
     }) %>% bindCache(ids()[1], data_long()) # could probably pass the name of the dataset - would be 
     # more efficient to compare than the whole dataset
@@ -122,7 +124,9 @@ mod_plotsServer <- function(id, data_long, selected_ids, id_type, plot_colours =
       data_filt <- data_long() %>%
         filter(.data[[accession_col]] == id)
       
-      acid_boxplot(data_filt, id, plot_colours, second_factor = second_factor)
+      plot_title <- pull(data_filt, .data[[title_id]])[1]
+      
+      acid_boxplot(data_filt, title = plot_title, plot_colours, second_factor = second_factor)
       
     }) %>% bindCache(ids()[2], data_long())
     
@@ -134,7 +138,9 @@ mod_plotsServer <- function(id, data_long, selected_ids, id_type, plot_colours =
       data_filt <- data_long() %>%
         filter(.data[[accession_col]] == id)
       
-      acid_boxplot(data_filt, id, plot_colours, second_factor = second_factor)
+      plot_title <- pull(data_filt, .data[[title_id]])[1]
+      
+      acid_boxplot(data_filt, title = plot_title, plot_colours, second_factor = second_factor)
     }) %>% bindCache(ids()[3], data_long())
     
     output$plot4 <- renderPlot({
@@ -145,7 +151,9 @@ mod_plotsServer <- function(id, data_long, selected_ids, id_type, plot_colours =
       data_filt <- data_long() %>%
         filter(.data[[accession_col]] == id)
       
-      acid_boxplot(data_filt, id, plot_colours, second_factor = second_factor)
+      plot_title <- pull(data_filt, .data[[title_id]])[1]
+      
+      acid_boxplot(data_filt, title = plot_title, plot_colours, second_factor = second_factor)
     }) %>% bindCache(ids()[4], data_long())
   })   
 }            
