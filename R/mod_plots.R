@@ -1,4 +1,4 @@
-browser_buttons <- FALSE
+browser_buttons <- TRUE
 ## Try just having one layout!!
 
 mod_plotsUI <- function(id){
@@ -12,7 +12,7 @@ mod_plotsUI <- function(id){
       
 }
 
-mod_plotsServer <- function(id, data_long, selected_ids, id_type, title_id = "Gene_id", plot_colours = c("#7EC247","#53A2DA"), second_factor = FALSE, accession_col = "Accession", plot_height = "200px") {
+mod_plotsServer <- function(id, data_long, selected_ids, id_type, panel_name, title_id = "Gene_id",  plot_colours = c("#7EC247","#53A2DA"), second_factor = FALSE, accession_col = "Accession", plot_height = "200px") {
   moduleServer(id, function(input, output, session) {
     
     ns_server <- NS(id)
@@ -79,9 +79,43 @@ mod_plotsServer <- function(id, data_long, selected_ids, id_type, title_id = "Ge
           )
         )
       }
-      tags
+      tagList(tags, downloadButton(outputId = ns_server("download_plots"), label = "Download pdf"))
     })
     
+    output$download_plots <- downloadHandler(
+      
+      filename = function() {
+        all_ids <- unique(pull(filtered_data(), .data[[title_id]]))
+        id_text <- paste0(all_ids, collapse = "_")
+        paste0(id_text, "_", panel_name, ".pdf")
+      },
+      content = function(file) {
+        n_plots <- length(plot_list())
+        ggsave(file, 
+               gridExtra::marrangeGrob(
+                 grobs = plot_list(), 
+                 nrow = ceiling(n_plots / 2), 
+                 ncol = if_else(n_plots == 1, 1, 2)
+                )
+               )
+      }
+    )
+    
+    # we get an error if we call one of the gg_plot objects if they don't exist,
+    # so using a rather inelegant solution here
+    plot_list <- reactive({
+      req(ids())
+      no_ids <- length(ids())
+      
+      x <- switch(no_ids,
+             list(gg_plot1()),
+             list(gg_plot1(), gg_plot2()),
+             list(gg_plot1(), gg_plot2(), gg_plot3()),
+             list(gg_plot1(), gg_plot2(), gg_plot3(), gg_plot4())
+            )
+      Filter(Negate(is.null), x)
+    })
+
     ## protein acid plots ----
     acid_boxplot <- function(data, title, box_colour, second_factor = FALSE){
 
@@ -101,59 +135,57 @@ mod_plotsServer <- function(id, data_long, selected_ids, id_type, title_id = "Ge
       }
     }
     
-    output$plot1 <- renderPlot({
-      
+    filtered_data <- reactive({
+      req(ids())
+      filter(data_long(), .data[[accession_col]] %in% ids())
+    })
+    
+    gg_plot1 <- reactive({
+      if(!isTruthy(ids()[1])) return (NULL)
       id <- ids()[1]
       req(id)
-
-      data_filt <- data_long() %>%
-        filter(.data[[accession_col]] == id)
-      
+      data_filt <- filter(filtered_data(), .data[[accession_col]] == id)
       plot_title <- pull(data_filt, .data[[title_id]])[1]
-      
-      acid_boxplot(data_filt, title = plot_title, plot_colours, second_factor = second_factor)
-        
-    }) %>% bindCache(ids()[1], data_long()) # could probably pass the name of the dataset - would be 
-    # more efficient to compare than the whole dataset
+      p <- acid_boxplot(data_filt, title = plot_title, plot_colours, second_factor = second_factor)
+      p
+    })
     
-    output$plot2 <- renderPlot({
-      
+    gg_plot2 <- reactive({
+      if(!isTruthy(ids()[2])) return (NULL)
       req(ids()[2])
       id <- ids()[2]
-      
-      data_filt <- data_long() %>%
-        filter(.data[[accession_col]] == id)
-      
+      data_filt <- filter(data_long(), .data[[accession_col]] == id)
       plot_title <- pull(data_filt, .data[[title_id]])[1]
-      
       acid_boxplot(data_filt, title = plot_title, plot_colours, second_factor = second_factor)
-      
-    }) %>% bindCache(ids()[2], data_long())
+    }) 
     
-    output$plot3 <- renderPlot({
-      
-      req(ids()[3])
-      id <- ids()[3]
-      
-      data_filt <- data_long() %>%
-        filter(.data[[accession_col]] == id)
-      
-      plot_title <- pull(data_filt, .data[[title_id]])[1]
-      
-      acid_boxplot(data_filt, title = plot_title, plot_colours, second_factor = second_factor)
-    }) %>% bindCache(ids()[3], data_long())
+    gg_plot3 <- reactive({
+      if(!isTruthy(ids()[3])) return (NULL)
+      else {
+        req(ids()[3])
+        id <- ids()[3]
+        data_filt <- filter(data_long(), .data[[accession_col]] == id)
+        plot_title <- pull(data_filt, .data[[title_id]])[1]
+        acid_boxplot(data_filt, title = plot_title, plot_colours, second_factor = second_factor)
+      }
+    }) 
     
-    output$plot4 <- renderPlot({
-      
+    gg_plot4 <- reactive({
+      if(!isTruthy(ids()[4])) return (NULL)
       req(ids()[4])
       id <- ids()[4]
-      
-      data_filt <- data_long() %>%
-        filter(.data[[accession_col]] == id)
-      
+      data_filt <- filter(data_long(), .data[[accession_col]] == id)
       plot_title <- pull(data_filt, .data[[title_id]])[1]
-      
       acid_boxplot(data_filt, title = plot_title, plot_colours, second_factor = second_factor)
-    }) %>% bindCache(ids()[4], data_long())
+    }) 
+     
+    output$plot1 <- renderPlot(gg_plot1()) %>% bindCache(ids()[1], data_long()) # could probably pass the name of the dataset - would be 
+    # more efficient to compare than the whole dataset
+    
+    output$plot2 <- renderPlot(gg_plot2()) %>% bindCache(ids()[2], data_long())
+    
+    output$plot3 <- renderPlot(gg_plot3()) %>% bindCache(ids()[3], data_long())
+    
+    output$plot4 <- renderPlot(gg_plot4()) %>% bindCache(ids()[4], data_long())
   })   
 }            

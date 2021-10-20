@@ -464,7 +464,7 @@ server <- function(input, output, session) {
       
         req(filtered_meta()$Gene_expr_id)
         gene_exprUI <- mod_plotsUI("gene_expr_panel")
-        mod_plotsServer("gene_expr_panel", filtered_gene_dataset,  filtered_meta, id_type = "Gene_expr_id", title_id = "Accession")
+        mod_plotsServer("gene_expr_panel", filtered_gene_dataset,  filtered_meta, panel_name = "gene_expression", id_type = "Gene_expr_id", title_id = "Accession")
         
         wellPanel(
           id = "gene_expr_panel", 
@@ -497,7 +497,7 @@ server <- function(input, output, session) {
       } else {
         req(filtered_meta()[["Accession"]])
         protein1UI <- mod_plotsUI("protein1_panel")
-        mod_plotsServer("protein1_panel", filtered_acid_dataset,  filtered_meta, id_type = "Accession")
+        mod_plotsServer("protein1_panel", filtered_acid_dataset,  filtered_meta, panel_name = "acid_extractome", id_type = "Accession")
       
         wellPanel(
           id = "prot_acid_panel", 
@@ -524,7 +524,7 @@ server <- function(input, output, session) {
       } else {
         req(filtered_meta()[["Majority.protein.IDs"]])
         protein2UI <- mod_plotsUI("protein2_panel")
-        mod_plotsServer("protein2_panel", filtered_chep_dataset, filtered_meta, id_type = "Majority.protein.IDs", accession_col = "Majority.protein.IDs")
+        mod_plotsServer("protein2_panel", filtered_chep_dataset, filtered_meta, panel_name = "chromatin_associated_protein", id_type = "Majority.protein.IDs", accession_col = "Majority.protein.IDs")
         
         wellPanel(
           id = "prot_chromatin_panel", 
@@ -552,7 +552,7 @@ server <- function(input, output, session) {
     
         req(filtered_meta()[["histone_mark"]])
         histoneUI <- mod_plotsUI("histone_panel")
-        mod_plotsServer("histone_panel", filtered_histone_dataset,  filtered_meta, id_type = "histone_mark", accession_col = "histone_mark", second_factor = "medium", title_id = "histone_mark")
+        mod_plotsServer("histone_panel", filtered_histone_dataset,  filtered_meta, panel_name = "histone_mark", id_type = "histone_mark", accession_col = "histone_mark", second_factor = "medium", title_id = "histone_mark")
         
         wellPanel(
           id = "histone_panel", 
