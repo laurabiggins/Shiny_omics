@@ -1,4 +1,4 @@
-browser_buttons <- FALSE
+browser_buttons <- TRUE
 ## Try just having one layout!!
 
 mod_plotsUI <- function(id){
@@ -90,20 +90,17 @@ mod_plotsServer <- function(id, data_long, selected_ids, id_type, panel_name, ti
         paste0(id_text, "_", panel_name, ".pdf")
       },
       content = function(file) {
-        n_plots <- length(plot_list())
-        ggsave(file, 
-               gridExtra::marrangeGrob(
-                 grobs = plot_list(), 
-                 nrow = ceiling(n_plots / 2), 
-                 ncol = if_else(n_plots == 1, 1, 2)
-                )
-               )
+        pdf(file, onefile = FALSE)
+        print(arranged_plots())
+        dev.off()
+        #ggsave(file, arranged_plots())
       }
     )
     
+    
     # we get an error if we call one of the gg_plot objects if they don't exist,
     # so using a rather inelegant solution here
-    plot_list <- reactive({
+    arranged_plots <- reactive({
       req(ids())
       no_ids <- length(ids())
       
@@ -113,7 +110,17 @@ mod_plotsServer <- function(id, data_long, selected_ids, id_type, panel_name, ti
              list(gg_plot1(), gg_plot2(), gg_plot3()),
              list(gg_plot1(), gg_plot2(), gg_plot3(), gg_plot4())
             )
-      Filter(Negate(is.null), x)
+      plot_list <- Filter(Negate(is.null), x)
+      
+      n_plots <- length(plot_list)
+      
+      gridExtra::marrangeGrob(
+        grobs = plot_list, 
+        nrow = 2,
+        #nrow = ceiling(n_plots / 2), 
+        ncol = 2, #if_else(n_plots == 1, 1, 2),
+        layout_matrix = t(matrix(1:4, nrow= 2, ncol = 2))
+      )
     })
 
     ## protein acid plots ----
