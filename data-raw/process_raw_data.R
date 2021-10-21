@@ -201,6 +201,8 @@ table_data <- meta %>%
   arrange(desc(Accession)) %>%
   rowid_to_column()
 
+saveRDS(table_data, "data/table_data.rds")
+
 gene_id_table <- table_data %>%
   mutate(`acid extractome` = if_else(!is.na(Accession), "data available", "no data")) %>%
   mutate(chep = if_else(!is.na(Majority.protein.IDs), "data available", "no data")) %>%
