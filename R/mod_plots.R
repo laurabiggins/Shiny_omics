@@ -12,11 +12,14 @@ mod_plotsUI <- function(id){
       
 }
 
-mod_plotsServer <- function(id, data_long, selected_ids, id_type, panel_name, title_id = "Gene_id",  plot_colours = c("#7EC247","#53A2DA"), second_factor = FALSE, accession_col = "Accession", plot_height = "200px") {
+mod_plotsServer <- function(id, data_long, selected_ids, id_type, panel_name, title_id = "Gene_id",  plot_legend = FALSE, plot_colours = c("#7EC247","#53A2DA"), second_factor = FALSE, accession_col = "Accession", plot_height = "200px") {
   moduleServer(id, function(input, output, session) {
     
     ns_server <- NS(id)
 
+    custom_plot_colours <- c(Naive = "#7EC247", Primed = "#53A2DA", "Naive+PRC2i" = "#C8E5B0", "Primed+PRC2i" = "#B5D7EF")
+    col_scale <- scale_fill_manual(name = "condition", values = custom_plot_colours)
+    
     observeEvent(input$browser, browser())
     
     ids <- reactive(selected_ids()[[id_type]])
@@ -130,15 +133,18 @@ mod_plotsServer <- function(id, data_long, selected_ids, id_type, panel_name, ti
         ggplot(data, aes(x = condition, y = value, fill = condition, colour = .data[[second_factor]])) +
           geom_boxplot(lwd = 1.2, fatten = 0.5) +
           xlab("") +
-          scale_fill_manual(values = c("#7EC247", "#53A2DA")) +
+          col_scale +
+          #scale_fill_manual(values = c("#7EC247", "#53A2DA", "#C8E5B0", "#B5D7EF")) +
           scale_colour_manual(values = c("black", "red4", "blue4")) +
           ggtitle(title)
       } else {
         ggplot(data, aes(x = condition, y = value, fill = condition)) +
           geom_boxplot() +
           xlab("") +
-          scale_fill_manual(values = c("#7EC247", "#53A2DA")) +
-          ggtitle(title)
+          #scale_fill_manual(values = c("#7EC247", "#53A2DA", "#C8E5B0", "#B5D7EF")) +
+          col_scale +
+          ggtitle(title) +
+          theme(legend.position = "none")
       }
     }
     

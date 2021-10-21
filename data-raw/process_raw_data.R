@@ -20,7 +20,7 @@ acid_long <- acid_extractome %>%
   separate(name, into = c("condition", "rep"), sep = " ") %>%
   drop_na()
 
-saveRDS(acid_long, "data/acid_long.rds")
+#saveRDS(acid_long, "data/acid_long.rds")
 
 ## chep data ----
 ## this has got p values which I'l deal with afterwards
@@ -196,7 +196,29 @@ all_histones <- histone_data %>%
 
 meta <- full_join(meta2, all_histones, na_matches = "never")
 
-saveRDS(meta, "data/meta.rds")
+table_data <- meta %>%
+  relocate(Gene_id) %>%
+  arrange(desc(Accession)) %>%
+  rowid_to_column()
+
+gene_id_table <- table_data %>%
+  mutate(`acid extractome` = if_else(!is.na(Accession), "data available", "no data")) %>%
+  mutate(chep = if_else(!is.na(Majority.protein.IDs), "data available", "no data")) %>%
+  mutate(`gene expr` = if_else(!is.na(Gene_expr_id), "data available", "no data")) %>%
+  mutate(histone = if_else(!is.na(histone_mark), histone_mark, "no data")) %>%
+  select(rowid, Gene_id, `acid extractome`:last_col(), Accession, Majority.protein.IDs, gene_id_chep, histone_mark, Description)
+
+saveRDS(gene_id_table, "data/gene_id_table.rds")
+
+# add a gene id column to the acid dataset
+gene_ids <- gene_id_table %>%
+  select(.data[["Accession"]], Gene_id) %>%
+  drop_na() 
+
+acid_long <- acid_long %>%
+  left_join(gene_ids)
+
+saveRDS(acid_long, "data/acid_long.rds")
 
 
 # check if the histone matching was good enough
@@ -236,7 +258,7 @@ acid_pval_fc <- acid_pvals %>%
   pivot_longer(cols = !Accession, names_to = "condition", values_to = "pval") %>%
   left_join(fold_change)
 
-saveRDS(acid_pval_fc, "data/acid_pval_fc.rds")
+
 
 ### histone_pvals ----
 histone_pvals <- read_tsv("data-raw/hPTM_pvals.txt")
@@ -262,7 +284,7 @@ histone_pval_fc <- histone_pvals %>%
   left_join(histone_fc) %>%
   drop_na()
 
-saveRDS(histone_pval_fc, "data/histone_pval_fc.rds")
+
 
 ### chep pvalues ----
 chep1 <- read_tsv("data-raw/ChEP_naive_primed.txt")
@@ -290,23 +312,29 @@ chep_pval_fc <- bind_rows(chep1_p, chep2_p, chep3_p)
 # in line with the other data types
 chep_pval_fc <- mutate(chep_pval_fc, pval = 10^-pval)
 
-saveRDS(chep_pval_fc, "data/chep_pval_fc.rds")
+# Add gene id column before saving pvalue datasets
+# this doesn't need to be in the reactive - extract it!!  
 
-#this is a rough check that the values we've got match (ish) the pval dataset that's been provided - 
-#not proper way to do stats - don't use these!!
-t_test_check <- acid_long %>%
-  filter(condition %in% c("Naive", "Primed")) %>%
-  #mutate(mean = if_else(value == 0, 0.1, value)) %>% # otherwise t_test won't work for loads of 0 values
-  group_by(Accession) %>%
-  rstatix::t_test(value~condition) %>%
-  ungroup() %>%
-  select(Accession, p)
-  
+add_gene_id_column <- function(pval_ds, accession_type, gene_id_table){
 
-pval_check <- acid_pval_fc %>%
-  left_join(t_test_check)
+  gene_ids <- gene_id_table %>%
+    select(.data[[accession_type]], Gene_id) %>%
+    drop_na() 
 
-saveRDS(pval_check, "data/pval_check_temp.rds")
+  pval_ds %>%
+    drop_na() %>%
+    left_join(gene_ids) 
+}
+
+histone_pval_fc2 <- add_gene_id_column(histone_pval_fc, "histone_mark", gene_id_table)
+acid_pval_fc2 <- add_gene_id_column(acid_pval_fc, "Accession", gene_id_table)
+chep_pval_fc2 <- add_gene_id_column(chep_pval_fc, "Majority.protein.IDs", gene_id_table)
+
+saveRDS(histone_pval_fc2, "data/histone_pval_fc.rds")
+saveRDS(acid_pval_fc2, "data/acid_pval_fc.rds")
+saveRDS(chep_pval_fc2, "data/chep_pval_fc.rds")
+
+
 
 
 

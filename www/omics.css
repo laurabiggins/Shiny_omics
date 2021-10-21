@@ -98,12 +98,20 @@
   padding: 15px;
 }
 
-#plot_type_selections {
+/*#plot_type_selections {
    border: 3px solid #888;
    margin: 10px 0px;
    padding: 5px;
    padding-bottom: 0;
 }
+*/
+.bordered_panel {
+   border: 3px solid #888;
+   margin: 10px 0px;
+   padding: 5px;
+   padding-bottom: 0;
+}
+
 
 #select_all_plots{
   font-weight: bold
