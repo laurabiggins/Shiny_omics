@@ -7,7 +7,7 @@ library(htmlwidgets)
 # # TODO: sort out main data table
 # # tool tip text on volcano plot
 # 
-browser_buttons <- FALSE
+browser_buttons <- TRUE
 # 
 dataset <- readRDS("data/meta.rds") #used for the DT - searching
 data_long <- readRDS("data/acid_long.rds")
@@ -17,23 +17,6 @@ histone_data <- readRDS("data/histone_data.rds")
 histone_pval_fc <- readRDS("data/histone_pval_fc.rds")
 chep_data <- readRDS("data/chep_data.rds")
 chep_pval_fc <- readRDS("data/chep_pval_fc.rds")
-#acid_pval_fc <- readRDS("data/pval_check_temp.rds")
-
-table_data <- dataset %>%
- #select(-Protein.names, -Description) %>%
- #select(-rowid, -Protein.names, -Description) %>%
- relocate(Gene_id) %>%
- arrange(desc(Accession)) %>%
- rowid_to_column()
-
-gene_id_table <- table_data %>%
-  mutate(`acid extractome` = if_else(!is.na(Accession), "data available", "no data")) %>%
-  mutate(chep = if_else(!is.na(Majority.protein.IDs), "data available", "no data")) %>%
-  mutate(`gene expr` = if_else(!is.na(Gene_expr_id), "data available", "no data")) %>%
-  mutate(histone = if_else(!is.na(histone_mark), histone_mark, "no data")) %>%
-  select(rowid, Gene_id, `acid extractome`:last_col(), Accession, Majority.protein.IDs, gene_id_chep, histone_mark, Description)
-
-#plot_colours <- c("red3", "blue3", "green3", "orange3")
 
 conditions <- c("Naive", "Naive+PRC2i", "Primed", "Primed+PRC2i")
 histone_media <- c("PXGL", "ENHSM", "t2iLGo")
@@ -107,7 +90,7 @@ ui <- fluidPage(
     )
   ),
   ## data type checkboxes ----
-  wellPanel(id = "plot_type_selections",
+  wellPanel(id = "plot_type_selections", class = "bordered_panel",
     fluidRow(
       column(
         width = 2,
@@ -144,12 +127,19 @@ ui <- fluidPage(
     ) 
  ),
  ## condition type checkboxes ----
-  checkboxGroupInput(
-      inputId = "conditions_to_display",
-      label = "",
-      choices = conditions,
-      selected = c("Naive", "Primed"),
-      inline = TRUE
+  wellPanel(class = "bordered_panel",
+           fluidRow(
+             column(4, strong("Select conditions to display in plots")),
+             column(8, 
+                    checkboxGroupInput(
+                      inputId = "conditions_to_display",
+                      label = NULL,
+                      choices = conditions,
+                      selected = c("Naive", "Primed"),
+                      inline = TRUE
+                    )
+             )
+           )
   ),
   br(),
   if(browser_buttons) actionButton("browser", "browser")
@@ -167,8 +157,6 @@ server <- function(input, output, session) {
   
   ## filtered datatable ----
   filtered_meta <- reactiveVal()
-  
-  selected_ids <- reactiveValues()
   
   # key for data table ----
   key <- reactive({
@@ -194,22 +182,15 @@ server <- function(input, output, session) {
   ## render filtered meta ----
   output$selected_table <- DT::renderDataTable({
     req(filtered_meta())
-    dt_setup(filtered_meta() %>% select(Gene_id, Description, histone_mark))
+    dt_setup(filtered_meta() %>% select(Gene_id, Description, histone_mark), selection = "none")
   })
   
   
   ## dataset filters ----
   filtered_acid_dataset <- reactive({
     
-    # put all this in the pre-processing!!
-    column <- "Accession"
-    gene_ids <- gene_id_table %>%
-      select(.data[[column]], Gene_id) %>%
-      drop_na() 
-    
     data_long %>%
-      filter(condition %in% input$conditions_to_display) %>%
-      left_join(gene_ids)
+      filter(condition %in% input$conditions_to_display)
   })
   
   filtered_chep_dataset <- reactive({
@@ -230,46 +211,17 @@ server <- function(input, output, session) {
       filter(condition %in% input$conditions_to_display) %>%
       filter(medium %in% input$histone_media)
   })
-  
-  
-  volcano_dataset <- reactiveVal()
-  
+
   volcano_dataset <- reactive({
     
     volcano_ds <- switch(input$volcano_type,
-                         histones = histone_pval_fc,
-                         acid_protein = acid_pval_fc,
-                         chr_protein = chep_pval_fc)
+           histones = histone_pval_fc,
+           acid_protein = acid_pval_fc,
+           chr_protein = chep_pval_fc)
     
-  # this doesn't need to be in the reactive - extract it!!  
-    column <- switch(input$volcano_type,
-                     histones = "histone_mark",
-                     acid_protein = "Accession",
-                     chr_protein = "Majority.protein.IDs")
-    
-    gene_ids <- gene_id_table %>%
-      select(.data[[column]], Gene_id) %>%
-      drop_na() 
-    
-   volcano_ds %>%
-      filter(condition == input$volcano_condition_type) %>%
-      drop_na() %>%
-      left_join(gene_ids)
+    volcano_ds %>%
+       filter(condition == input$volcano_condition_type)
   })
-  
-  # observeEvent(input$volcano_type, {
-  #   
-  #   volcano_ds <- switch(input$volcano_type,
-  #          histones = histone_pval_fc,
-  #          acid_protein = acid_pval_fc,
-  #          chr_protein = chep_pval_fc)
-  #   
-  #   volcano_ds <- volcano_ds %>%
-  #     filter(condition == "naive_primed") %>%
-  #     drop_na() 
-  #   
-  #   volcano_dataset(volcano_ds)
-  # })
   
   ## volcano plot ----
   output$volcano <- renderPlotly({
@@ -277,11 +229,10 @@ server <- function(input, output, session) {
     first_col <- colnames(volcano_dataset())[1]
     
     p <- volcano_dataset() %>%
-      ggplot(aes(x = log2fc, y = -log10(pval), key = key(), text = Gene_id, label = .data[[first_col]])) + #colour = species, fill = species)) +
+      ggplot(aes(x = log2fc, y = -log10(pval), key = key(), label = Gene_id, text = substr(.data[[first_col]], 1, 15))) +
       geom_point(shape = 20) +
       geom_hline(yintercept = -log10(0.05), col = "red", linetype = "dashed") +
       geom_vline(xintercept = c(-1,1), linetype = "dashed", col = "darkgray") +
-      #geom_vline(xintercept = 0, linetype = "dashed", col = "grey") +
       theme(legend.position="none")
     
       if(! is.null(filtered_meta())) {
@@ -300,8 +251,7 @@ server <- function(input, output, session) {
                 )
         }
       }
-            
-      ggplotly(p, tooltip = c("label", "Gene_id"))
+      ggplotly(p, tooltip = c("label", "text"))
         
     })
     
@@ -330,8 +280,6 @@ server <- function(input, output, session) {
   ### table row selections ----
   observeEvent(input$pp_table_rows_selected, ignoreNULL = FALSE, {
     
-    
-      
     row_numbers <- as.numeric(input$pp_table_rows_selected)
     
     print("updating selected rows")
@@ -395,9 +343,7 @@ server <- function(input, output, session) {
 
     id_type <- colnames(volcano_dataset())[1]
     row_to_add <- filter(table_data, .data[[id_type]] == selected_accessions)
-    
-    #row_to_add <- left_join(selected_accessions, table_data)
-    
+
     if(is.null(filtered_meta())) {
       filtered_meta(row_to_add)
     } else if (nrow(filtered_meta()) < 4) {
@@ -444,7 +390,6 @@ server <- function(input, output, session) {
   observeEvent(event_data("plotly_deselect"), {
     print("none selected")
     filtered_meta(NULL)
-    #selectRows(table_proxy, selected = NULL)
   })
 
   ## plot panels -----
@@ -476,7 +421,7 @@ server <- function(input, output, session) {
     }  
   }) 
  
-  # This works but it stops the flow of the fluidRow elements. I think to make it work beeter, the javascript for the conditional panel should include an argument triggered by a close button. 
+  # This works but it stops the flow of the fluidRow elements. I think to make it work better, the javascript for the conditional panel should include an argument triggered by a close button. 
 #  observeEvent(input$close_gene_panel, {
 #    shinyjs::hideElement("gene_expr")
 #  })
@@ -546,7 +491,7 @@ server <- function(input, output, session) {
           id = "histone_panel", 
           class = "plot_panel",
           h2("Histone abundance", class = "panel_title"),
-          p(class = "no_data", "No data for selected histone marks")
+          p(class = "no_data", "No histone data for current selections")
         )
       } else {
     
