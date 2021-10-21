@@ -7,9 +7,10 @@ library(htmlwidgets)
 # # TODO: sort out main data table
 # # tool tip text on volcano plot
 # 
-browser_buttons <- TRUE
+browser_buttons <- FALSE
 # 
-dataset <- readRDS("data/meta.rds") #used for the DT - searching
+gene_id_table <- readRDS("data/gene_id_table.rds") #used for the DT - searching
+table_data <- readRDS("data/table_data.rds")
 data_long <- readRDS("data/acid_long.rds")
 acid_pval_fc <- readRDS("data/acid_pval_fc.rds")
 genes_long <- readRDS("data/genes_long.rds")

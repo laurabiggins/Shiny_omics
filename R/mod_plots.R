@@ -1,4 +1,4 @@
-browser_buttons <- TRUE
+browser_buttons <- FALSE
 ## Try just having one layout!!
 
 mod_plotsUI <- function(id){
@@ -134,16 +134,16 @@ mod_plotsServer <- function(id, data_long, selected_ids, id_type, panel_name, ti
           geom_boxplot(lwd = 1.2, fatten = 0.5) +
           xlab("") +
           col_scale +
-          #scale_fill_manual(values = c("#7EC247", "#53A2DA", "#C8E5B0", "#B5D7EF")) +
           scale_colour_manual(values = c("black", "red4", "blue4")) +
-          ggtitle(title)
+          ggtitle(title)#+
+         # theme_minimal()
       } else {
         ggplot(data, aes(x = condition, y = value, fill = condition)) +
           geom_boxplot() +
           xlab("") +
-          #scale_fill_manual(values = c("#7EC247", "#53A2DA", "#C8E5B0", "#B5D7EF")) +
           col_scale +
           ggtitle(title) +
+          #theme_minimal() +
           theme(legend.position = "none")
       }
     }
