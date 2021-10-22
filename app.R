@@ -106,6 +106,21 @@ ui <- fluidPage(
           inline = TRUE
         )
       )
+    ),
+  #),
+  ## condition type checkboxes ----
+  #wellPanel(class = "bordered_panel",
+    fluidRow(
+      column(3, strong("Select conditions to display in plots")),
+      column(9, 
+             checkboxGroupInput(
+               inputId = "conditions_to_display",
+               label = NULL,
+               choices = conditions,
+               selected = c("Naive", "Primed"),
+               inline = TRUE
+             )
+      )
     )
   ),
   ## plot panels ----
@@ -127,21 +142,6 @@ ui <- fluidPage(
         column(width = 6, uiOutput("histones", class = "plot_box"))
     ) 
  ),
- ## condition type checkboxes ----
-  wellPanel(class = "bordered_panel",
-           fluidRow(
-             column(4, strong("Select conditions to display in plots")),
-             column(8, 
-                    checkboxGroupInput(
-                      inputId = "conditions_to_display",
-                      label = NULL,
-                      choices = conditions,
-                      selected = c("Naive", "Primed"),
-                      inline = TRUE
-                    )
-             )
-           )
-  ),
   br(),
   if(browser_buttons) actionButton("browser", "browser")
 )
