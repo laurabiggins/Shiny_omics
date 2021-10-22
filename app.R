@@ -170,7 +170,7 @@ server <- function(input, output, session) {
     datatable(
       gene_id_table, 
       rownames = FALSE,
-      options = list(dom = "ftip", pageLength = 13)
+      options = list(dom = "ftip", pageLength = 13, scrollX = TRUE, autoWidth = FALSE)
     ) %>% 
       formatStyle(
         c('acid extractome', 'chep', 'gene expr', 'histone'),
