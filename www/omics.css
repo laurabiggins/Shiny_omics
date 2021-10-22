@@ -5,9 +5,9 @@
 
 .dataTables_filter {
    float: left !important;
-   margin-bottom: 20px;
+   margin-bottom: 15px;
    margin-left: 10px;
-   font-size: 25px;
+   font-size: 20px;
    text-align: left;
 }
 
@@ -48,8 +48,9 @@
   margin-bottom: 30px
 }
 
-.plotRow{
-  height: 200px;
+.plotArea{
+ /* height: 200px;*/
+ padding-bottom: 10px;
 }
 
 .checkbox {
@@ -123,6 +124,7 @@
 
 .plot_box {
   padding: 0;
+  border-style: none;
 }
 
 .table>tbody>tr>td, .table>tbody>tr>th, .table>tfoot>tr>td, .table>tfoot>tr>th, .table>thead>tr>td, .table>thead>tr>th {

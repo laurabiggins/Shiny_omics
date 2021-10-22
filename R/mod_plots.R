@@ -53,36 +53,37 @@ mod_plotsServer <- function(id, data_long, selected_ids, id_type, panel_name, ti
         tags <- tags_plot(ids()[1], plot_name = "plot1")
       } else if (length(ids()) == 2){
         tags <- tagList(
-          fluidRow(class = "plotRow",
+          fluidRow(
             column(width = 6, tags_plot(ids()[1], plot_name = "plot1")),
             column(width = 6, tags_plot(ids()[2], plot_name = "plot2"))
           )  
         )
       } else if (length(ids()) == 3){
         tags <- tagList(
-          fluidRow(class = "plotRow",
-            column(width = 6, tags_plot(ids()[1], plot_name = "plot1")),
-            column(width = 6, tags_plot(ids()[2], plot_name = "plot2"))
-          ),
-          br(),
-          fluidRow(class = "plotRow",
-            column(width = 6, tags_plot(ids()[3], plot_name = "plot3"))
+          fluidRow(
+            column(width = 6, class = "plotArea", tags_plot(ids()[1], plot_name = "plot1")),
+            column(width = 6, class = "plotArea", tags_plot(ids()[2], plot_name = "plot2")),
+            column(width = 6, class = "plotArea", tags_plot(ids()[3], plot_name = "plot3"))
           )
         )
       } else if (length(ids()) == 4){
         tags <- tagList(
-          fluidRow(class = "plotRow",
-            column(width = 6, tags_plot(ids()[1], plot_name = "plot1")),
-            column(width = 6, tags_plot(ids()[2], plot_name = "plot2"))
-          ),
-          br(),
-          fluidRow(class = "plotRow",
-            column(width = 6, tags_plot(ids()[3], plot_name = "plot3")),
-            column(width = 6, tags_plot(ids()[4], plot_name = "plot4"))
+          fluidRow(
+            column(width = 6, class = "plotArea", tags_plot(ids()[1], plot_name = "plot1")),
+            column(width = 6, class = "plotArea", tags_plot(ids()[2], plot_name = "plot2")),
+            column(width = 6, class = "plotArea", tags_plot(ids()[3], plot_name = "plot3")),
+            column(width = 6, class = "plotArea", tags_plot(ids()[4], plot_name = "plot4"))
           )
         )
       }
-      tagList(tags, downloadButton(outputId = ns_server("download_plots"), label = "Download pdf"))
+      tagList(
+        wellPanel(class = "plot_box", 
+                  tags,
+                  downloadButton(outputId = ns_server("download_plots"), label = "Download pdf"))
+        )
+      #)
+      
+      #tagList(tags, downloadButton(outputId = ns_server("download_plots"), label = "Download pdf"))
     })
     
     output$download_plots <- downloadHandler(
