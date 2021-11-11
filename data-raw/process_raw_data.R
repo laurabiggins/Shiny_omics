@@ -9,7 +9,7 @@ genes_long <- gene_expr %>%
   pivot_longer(-Gene) %>%
   separate(name, into = c("condition", "rep"), sep = " ") %>%
   drop_na() %>%
-  rename(Accession = Gene)
+  rename(Gene_expr_id = Gene)
 
 saveRDS(genes_long, "data/genes_long.rds")
 
@@ -20,7 +20,7 @@ acid_long <- acid_extractome %>%
   separate(name, into = c("condition", "rep"), sep = " ") %>%
   drop_na()
 
-#saveRDS(acid_long, "data/acid_long.rds")
+#saveRDS(acid_long, "data/acid_long.rds") # this is saved later on
 
 ## chep data ----
 ## this has got p values which I'l deal with afterwards
@@ -43,10 +43,20 @@ chep3 <- chep3 %>%
   pivot_longer(cols = starts_with("LFQ")) %>%
   separate(name, into = c(NA, NA, "condition", "rep"), sep = " ")
 
+# chep_data <- bind_rows(chep1, chep2, chep3) %>%
+#   distinct() %>%
+#   rename(Gene_id = Gene.names) %>%
+#   drop_na(Gene_id)
+
+# extra annotations
+chep_curated <- read_delim("data-raw/chep_curation.txt") %>%
+  rename(Gene.names = gene_id_chep, Gene_id = `Name in RNA-seq dataset`) 
+
 chep_data <- bind_rows(chep1, chep2, chep3) %>%
   distinct() %>%
-  rename(Gene_id = Gene.names) %>%
-  drop_na(Gene_id)
+  left_join(chep_curated) %>%
+  mutate(Gene_id = if_else(is.na(Gene_id), Gene.names, Gene_id))
+
 
 saveRDS(chep_data, "data/chep_data.rds")
 
@@ -82,12 +92,18 @@ saveRDS(histone_data, "data/histone_data.rds")
 # we'll join by gene name
 all_gene_expr_names <- pull(gene_expr, Gene) 
 
+# extra manual curations to match ids
+acid_curated <- read_delim("data-raw/acid_curated.txt") %>%
+  rename(Accession = Acid_id)
+
 acid_meta <- acid_extractome %>%
   select(Accession, Description) %>%
   separate(Description, sep = "GN=", into = c(NA, "Gene"), remove = FALSE) %>%
   separate(Gene, sep = " ", into = c("Gene_id", NA)) %>%
   select(Accession, Gene_id, Description) %>%
-  drop_na(Gene_id)
+  left_join(acid_curated) %>%
+  mutate(Gene_id = if_else(is.na(gene), Gene_id, gene)) %>%
+  select(-gene)
 
 # don't need to keep doing this
 #sum(acid_meta$Gene_id %in% all_gene_expr_names)
@@ -260,7 +276,25 @@ acid_pval_fc <- acid_pvals %>%
   pivot_longer(cols = !Accession, names_to = "condition", values_to = "pval") %>%
   left_join(fold_change)
 
+### gene expr pvalues ----
+gene_pvals <- read_tsv("data-raw/p_values_RNAseq_naive_primed_PRC2i_overlapping_genes.txt", lazy = FALSE) %>%
+  rename(Gene_expr_id = Accession)
 
+gene_fc <- genes_long %>%
+  group_by(Gene_expr_id, condition) %>%
+  summarise(mean = mean(value)) %>%
+  mutate(mean = if_else(mean == 0, 1, mean)) %>%  # replace 0s with value of 1 - if we go for 0.0000001, we'll get ridiculous fc values
+  pivot_wider(names_from = condition, values_from = mean) %>%
+  mutate(naive_primed = log2(Naive/Primed)) %>%
+  mutate(naive_naive2i = log2(Naive/`Naive+PRC2i`)) %>%
+  mutate(primed_primed2i = log2(Primed/`Primed+PRC2i`)) %>%
+  ungroup() %>%
+  select(-(2:5)) %>%
+  pivot_longer(cols = -Gene_expr_id, values_to = "log2fc", names_to = "condition", values_drop_na = TRUE)
+
+gene_pval_fc <- gene_pvals %>%
+  pivot_longer(cols = -Gene_expr_id, names_to = "condition", values_to = "pval") %>%
+  left_join(gene_fc)
 
 ### histone_pvals ----
 histone_pvals <- read_tsv("data-raw/hPTM_pvals.txt")
@@ -331,10 +365,13 @@ add_gene_id_column <- function(pval_ds, accession_type, gene_id_table){
 histone_pval_fc2 <- add_gene_id_column(histone_pval_fc, "histone_mark", gene_id_table)
 acid_pval_fc2 <- add_gene_id_column(acid_pval_fc, "Accession", gene_id_table)
 chep_pval_fc2 <- add_gene_id_column(chep_pval_fc, "Majority.protein.IDs", gene_id_table)
+gene_pval_fc2 <- mutate(gene_pval_fc, Gene_id = Gene_expr_id)
+
 
 saveRDS(histone_pval_fc2, "data/histone_pval_fc.rds")
 saveRDS(acid_pval_fc2, "data/acid_pval_fc.rds")
 saveRDS(chep_pval_fc2, "data/chep_pval_fc.rds")
+saveRDS(gene_pval_fc2, "data/gene_pval_fc.rds")
 
 
 
