@@ -13,7 +13,8 @@ gene_id_table <- readRDS("data/gene_id_table.rds") #used for the DT - searching
 table_data <- readRDS("data/table_data.rds")
 data_long <- readRDS("data/acid_long.rds")
 acid_pval_fc <- readRDS("data/acid_pval_fc.rds")
-genes_long <- readRDS("data/genes_long.rds")
+genes_long <- readRDS("data/genes_long.rds") 
+gene_pval_fc <- readRDS("data/gene_pval_fc.rds") 
 histone_data <- readRDS("data/histone_data.rds")
 histone_pval_fc <- readRDS("data/histone_pval_fc.rds")
 chep_data <- readRDS("data/chep_data.rds")
@@ -73,7 +74,7 @@ ui <- fluidPage(
           radioButtons(
             inputId = "volcano_type", 
             label = NULL, 
-            choices = datatypes[c(2,4,3)], 
+            choices = datatypes[c(2,4,3,1)], 
             inline = TRUE
           ),
           radioButtons(
@@ -216,9 +217,10 @@ server <- function(input, output, session) {
   volcano_dataset <- reactive({
     
     volcano_ds <- switch(input$volcano_type,
-           histones = histone_pval_fc,
+           histones     = histone_pval_fc,
            acid_protein = acid_pval_fc,
-           chr_protein = chep_pval_fc)
+           chr_protein  = chep_pval_fc,
+           gene_expr    = gene_pval_fc)
     
     volcano_ds %>%
        filter(condition == input$volcano_condition_type)
@@ -341,7 +343,7 @@ server <- function(input, output, session) {
     selected_accessions <- volcano_dataset() %>%
       slice(row_no) %>%
       pull(1)
-
+    
     id_type <- colnames(volcano_dataset())[1]
     row_to_add <- filter(table_data, .data[[id_type]] == selected_accessions)
 
@@ -410,7 +412,7 @@ server <- function(input, output, session) {
       
         req(filtered_meta()$Gene_expr_id)
         gene_exprUI <- mod_plotsUI("gene_expr_panel")
-        mod_plotsServer("gene_expr_panel", filtered_gene_dataset,  filtered_meta, panel_name = "gene_expression", id_type = "Gene_expr_id", title_id = "Accession")
+        mod_plotsServer("gene_expr_panel", filtered_gene_dataset,  filtered_meta, panel_name = "gene_expression", id_type = "Gene_expr_id", accession_col = "Gene_expr_id", title_id = "Gene_expr_id")
         
         wellPanel(
           id = "gene_expr_panel", 
