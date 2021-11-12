@@ -6,18 +6,8 @@ mod_histone_plotsUI <- function(id){
   ns <- NS(id)
   
   tagList(
-    
     uiOutput(ns("plot_panel"), class = "plot_box"),
-    #plotOutput(ns("plot_panel")),
     br(),
-    # fluidRow(
-    #   column(6,
-    #          downloadButton(outputId = ns("download_plots"), label = "Download pdf")
-    #   ),
-    #   column(6,
-    #          checkboxInput(inputId = ns("common_scale"), label = "common scale")
-    #   )
-    # ),
     if(browser_buttons) actionButton(ns("browser"), "browser")
   )  
   
@@ -46,22 +36,26 @@ mod_histone_plotsServer <- function(id, data_long, panel_name, ylabel) {
     
     ns_server <- NS(id)
     
-    custom_plot_colours <- c(Naive = "#7EC247", Primed = "#53A2DA", `Naive+PRC2i` = "#C8E5B0", `Primed+PRC2i` = "#B5D7EF")
+    custom_plot_colours <- c(
+      Naive          = "#7EC247", 
+      Primed         = "#53A2DA", 
+      `Naive+PRC2i`  = "#C8E5B0", 
+      `Primed+PRC2i` = "#B5D7EF"
+    )
     col_scale <- scale_fill_manual(name = "condition", values = custom_plot_colours)
     
     observeEvent(input$browser, browser())
     
-    width_height <- reactive({
+    plot_height <- reactive({
       n <- n_distinct(data_long()$histone_mark)
-      if(n == 3) c(900, 200)
+      if(n == 3) 200
       else {
         width <- ceiling(sqrt(n))
-        height <- ceiling(n/width)
-        c(width*300, height*200)
+        ceiling(n/width)*200
       }
     })
 
-    width <- reactive({
+    plot_width <- reactive({
       n <- n_distinct(data_long()$histone_mark)
       if(n == 1) 350
       else "auto"
@@ -77,7 +71,7 @@ mod_histone_plotsServer <- function(id, data_long, panel_name, ylabel) {
       tagList(
         wellPanel(
           class = "plot_box", 
-          plotOutput(ns_server("facet_plot"), height = width_height()[2]),
+          plotOutput(ns_server("facet_plot"), height = plot_height()),
           fluidRow(
             column(6,
                    downloadButton(outputId = ns_server("download_plots"), label = "Download pdf")
@@ -89,7 +83,6 @@ mod_histone_plotsServer <- function(id, data_long, panel_name, ylabel) {
         ) 
       )
     }) 
-      
  
     plot_object <- reactive({
       data_long() %>%
@@ -102,15 +95,14 @@ mod_histone_plotsServer <- function(id, data_long, panel_name, ylabel) {
         facet_wrap(~histone_mark, scales = y_scale())
     })
     
-    
-    output$facet_plot <- renderPlot(plot_object(), height = width_height()[2], width = width())#width_height()[1], width_height()[2])
+    output$facet_plot <- renderPlot(plot_object(), height = plot_height(), width = plot_width())
     
     output$download_plots <- downloadHandler(
 
       filename = function() {
-        all_ids <- unique(pull(filtered_data(), .data[[title_id]]))
+        all_ids <- unique(data_long()$histone_mark)
         id_text <- paste0(all_ids, collapse = "_")
-        paste0(id_text, "_", panel_name, ".pdf")
+        paste0("histones_", id_text, ".pdf")
       },
       content = function(file) {
         pdf(file, onefile = FALSE)
