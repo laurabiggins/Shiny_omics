@@ -7,9 +7,13 @@ library(htmlwidgets)
 # # TODO: sort out main data table
 # # tool tip text on volcano plot
 # 
-browser_buttons <- FALSE
+browser_buttons <- TRUE
 # 
-gene_id_table <- readRDS("data/gene_id_table.rds") #used for the DT - searching
+gene_id_table <- readRDS("data/gene_id_table.rds") %>%
+  rename(`Acid extract` = `acid extractome`, `Gene expr` = `gene expr`, ChEP = chep, Histone = histone) %>%
+  select(rowid, Gene_id, `Gene expr`, ChEP, `Acid extract`, Histone, everything())
+
+#used for the DT - searching
 table_data <- readRDS("data/table_data.rds")
 data_long <- readRDS("data/acid_long.rds")
 acid_pval_fc <- readRDS("data/acid_pval_fc.rds")
@@ -22,8 +26,6 @@ chep_pval_fc <- readRDS("data/chep_pval_fc.rds")
 
 conditions <- c("Naive", "Naive+PRC2i", "Primed", "Primed+PRC2i")
 histone_media <- c("PXGL", "ENHSM", "t2iLGo")
-
-acid_plot_height <- "250px"
 
 datatypes <- c(
  "Gene expression" = "gene_expr", 
@@ -174,7 +176,7 @@ server <- function(input, output, session) {
       options = list(dom = "ftip", pageLength = 13, scrollX = TRUE, autoWidth = FALSE)
     ) %>% 
       formatStyle(
-        c('acid extractome', 'chep', 'gene expr', 'histone'),
+        c('Gene expr', 'ChEP', 'Acid extract', 'Histone'),
         backgroundColor = styleEqual(levels = "no data", values = '#CFCCC9', default = '#B5E3D9'),
         `font-size` = '60%'
       ) %>% formatStyle(0, target = 'row', lineHeight = '50%')
@@ -412,7 +414,16 @@ server <- function(input, output, session) {
       
         req(filtered_meta()$Gene_expr_id)
         gene_exprUI <- mod_plotsUI("gene_expr_panel")
-        mod_plotsServer("gene_expr_panel", filtered_gene_dataset,  filtered_meta, panel_name = "gene_expression", id_type = "Gene_expr_id", accession_col = "Gene_expr_id", title_id = "Gene_expr_id")
+        mod_plotsServer(
+          "gene_expr_panel", 
+          filtered_gene_dataset, 
+          filtered_meta, 
+          panel_name = "gene_expression", 
+          id_type = "Gene_expr_id", 
+          accession_col = "Gene_expr_id", 
+          title_id = "Gene_expr_id",
+          ylabel = "log2 normalised counts"
+        )
         
         wellPanel(
           id = "gene_expr_panel", 
@@ -445,7 +456,15 @@ server <- function(input, output, session) {
       } else {
         req(filtered_meta()[["Accession"]])
         protein1UI <- mod_plotsUI("protein1_panel")
-        mod_plotsServer("protein1_panel", filtered_acid_dataset,  filtered_meta, panel_name = "acid_extractome", id_type = "Accession")
+        mod_plotsServer(
+          "protein1_panel", 
+          filtered_acid_dataset,  
+          filtered_meta, 
+          panel_name = "acid_extractome", 
+          id_type = "Accession",
+          accession_col = "Accession",
+          ylabel = "normalised abundance"
+        )
       
         wellPanel(
           id = "prot_acid_panel", 
@@ -472,7 +491,15 @@ server <- function(input, output, session) {
       } else {
         req(filtered_meta()[["Majority.protein.IDs"]])
         protein2UI <- mod_plotsUI("protein2_panel")
-        mod_plotsServer("protein2_panel", filtered_chep_dataset, filtered_meta, panel_name = "chromatin_associated_protein", id_type = "Majority.protein.IDs", accession_col = "Majority.protein.IDs")
+        mod_plotsServer(
+          "protein2_panel", 
+          filtered_chep_dataset, 
+          filtered_meta, 
+          panel_name = "chromatin_associated_protein", 
+          id_type = "Majority.protein.IDs", 
+          accession_col = "Majority.protein.IDs",
+          ylabel = "LFQ intensity"
+        )
         
         wellPanel(
           id = "prot_chromatin_panel", 
@@ -493,19 +520,29 @@ server <- function(input, output, session) {
         wellPanel(
           id = "histone_panel", 
           class = "plot_panel",
-          h2("Histone abundance", class = "panel_title"),
+          h2("Histone modifications", class = "panel_title"),
           p(class = "no_data", "No histone data for current selections")
         )
       } else {
     
         req(filtered_meta()[["histone_mark"]])
         histoneUI <- mod_plotsUI("histone_panel")
-        mod_plotsServer("histone_panel", filtered_histone_dataset,  filtered_meta, panel_name = "histone_mark", id_type = "histone_mark", accession_col = "histone_mark", second_factor = "medium", title_id = "histone_mark")
+        mod_plotsServer(
+          "histone_panel", 
+          filtered_histone_dataset, 
+          filtered_meta, 
+          panel_name = "histone_mark", 
+          id_type = "histone_mark", 
+          accession_col = "histone_mark",
+          title_id = "histone_mark",
+          second_factor = "medium", 
+          ylabel = "normalised abundance"
+        )
         
         wellPanel(
           id = "histone_panel", 
           class = "plot_panel",
-          h2("Histone abundance", class = "panel_title"),
+          h2("Histone modifications", class = "panel_title"),
           histoneUI,
           br(),
           p("If a plot is blank, histone data may only be available for a different medium."),
