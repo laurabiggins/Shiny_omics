@@ -162,19 +162,9 @@ mod_plotsServer <- function(id, data_long, selected_ids, id_type, panel_name, yl
         p <- ggplot(data, aes(x = condition, y = value, fill = condition, colour = .data[[second_factor]])) +
           geom_boxplot(lwd = 1.2, fatten = 0.5) +
           scale_colour_manual(values = c("black", "red4", "blue4")) 
-          # xlab("") +
-          # col_scale +
-          # ggtitle(title) +
-          # ylab(ylabel)
-         # theme_minimal()
       } else {
         p <- ggplot(data, aes(x = condition, y = value, fill = condition)) +
           geom_boxplot() +
-          # xlab("") +
-          # col_scale +
-          # ggtitle(title) +
-          # ylab(ylabel) +
-          # #theme_minimal() +
           theme(legend.position = "none")
       }
       p <- p + 
@@ -182,7 +172,6 @@ mod_plotsServer <- function(id, data_long, selected_ids, id_type, panel_name, yl
         col_scale +
         ggtitle(title) +
         ylab(ylabel)
-      
       
       if(input$common_scale){
         p + ylim(filtered_data_min_max())
