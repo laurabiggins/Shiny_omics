@@ -85,8 +85,6 @@ histone_data <- bind_rows(
 histone_data <- dplyr::rename(histone_data, histone_mark = `Histone mark`)
 histone_data$histone_mark <- str_replace(histone_data$histone_mark, pattern = "Ac", replacement = "ac")
 
-saveRDS(histone_data, "data/histone_data.rds")
-
 
 ## Meta - all data types ---- 
 # we'll join by gene name
@@ -105,35 +103,6 @@ acid_meta <- acid_extractome %>%
   mutate(Gene_id = if_else(is.na(gene), Gene_id, gene)) %>%
   select(-gene)
 
-# don't need to keep doing this
-#sum(acid_meta$Gene_id %in% all_gene_expr_names)
-#sum(!acid_meta$Gene_id %in% all_gene_expr_names)
-#View(acid_meta[!acid_meta$Gene_id %in% all_gene_expr_names,])
-#
-## Functions for splitting up gene ids to check for matches.
-## This isn't needed for the acid dataset as there are not multiple gene ids, but it is needed for the #Chep data
-#which_match <- function(id){
-#  #split the id in case there are multiple ids
-#  if(sum(str_detect(all_gene_expr_names, id)) == 0) return (NA)
-#  else return(id)
-#}
-#gene_match <- function(id){
-#  print(all_gene_expr_names[str_detect(all_gene_expr_names, id)])
-#}
-#
-#which_multi <- function(id){
-#  ids <- str_split(id, ";")[[1]]
-#  matches <- unlist(map(ids, which_match))
-#  matches[!is.na(matches)][1]
-#}
-#
-#unmatched <- acid_meta$Gene_id[!acid_meta$Gene_id %in% all_gene_expr_names]
-#unmatched_acid_ids <- acid_meta[!acid_meta$Gene_id %in% all_gene_expr_names,]
-#write_tsv(unmatched_acid_ids, file = "unmatched_acid_ids.txt") # write out the set of unmatched acid gene ids
-
-# No duplicated gene ids in the acid dataset
-#sum(duplicated(acid_meta$Gene_id)) 
-
 
 # The chep data has about 35 duplicated gene names, we can use the gene names 
 # to join the tables but we're not using the genes on the volcano plot so we don't need to worry about multiple matches.
@@ -142,37 +111,10 @@ chep_wide_ids <- chep_data %>%
   select(Majority.protein.IDs, Protein.names, Gene_id) %>%
   distinct() 
 
-#n_distinct(chep_wide_ids$Majority.protein.IDs)
-#n_distinct(chep_wide_ids$Protein.names)
-#n_distinct(chep_wide_ids$Gene_id)
-#
-## The majority protein_ids are unique so we'll use those for identifying the ChEP data.
-## Have a look at the dup genes
-#chep_wide_ids$Gene_id[duplicated(chep_wide_ids$Gene_id)] # quite a few NAs here, that's not much good.
-#dups <- chep_wide_ids[duplicated(chep_wide_ids$Gene_id),]
-
-# there are a lot of multiple gene names in the Chep ids so we'll need to separate them and
-# see which ones match
-
-
-
-# this takes a while so don't keep re-running it, but it does work quite nicely
-# matched_gene_id <- map_chr(chep_wide_ids$Gene_id, which_multi)
-
-
 chep_wide <- chep_wide_ids %>%
   rename(gene_id_chep = Gene_id) %>%
   mutate(Gene_id = if_else(gene_id_chep %in% all_gene_expr_names, gene_id_chep, NA_character_)) 
   
-#unmatched_chep_ids <- chep_wide %>%
-#  filter(is.na(Gene_id)) %>%
-#  select(-Gene_id)
-#
-
-# I've looked at the unmatched set and I don't think I can do anymore matching with this
-# it'll need some manual input to find any more matches
-#write_tsv(unmatched_chep_ids, file = "unmatched_chep_ids.txt")
-
 
 # join acid to chep, then gene_expr, then histones
 meta1 <- full_join(acid_meta, chep_wide, na_matches = "never")
@@ -201,16 +143,31 @@ histone_links <- histone_links %>%
   filter(histone_mark %in% histone_data$histone_mark)
 
 
-# also add any histones that aren't in this file.
-all_histones <- histone_data %>%
+# also add any histones that don't have links to genes
+all_histone_links <- histone_data %>%
   select(histone_mark) %>%
   distinct() %>%
   left_join(histone_links)
 
-#histone_data %>%
-#filter(histone_mark == "H3K79ac")
+## save histone data -----
+saveRDS(histone_data, "data/histone_data.rds")
+saveRDS(all_histone_links, "data/all_histone_links.rds")
 
-meta <- full_join(meta2, all_histones, na_matches = "never")
+
+# all_histone_links we can use to look up the histones from selected genes.
+# all(all_histone_links$histone_mark %in% histone_data$histone_mark) TRUE
+all_histone_links_na_temp <- all_histone_links %>%
+  filter(is.na(Gene_id)) %>%
+  relocate(Gene_id)
+
+all_histones_meta <- all_histone_links %>%
+  drop_na() %>%
+  group_by(Gene_id) %>%
+  summarise(histone_mark = paste(histone_mark, collapse = ", ")) %>%
+  bind_rows(all_histone_links_na_temp)
+
+meta <- full_join(meta2, all_histones_meta, na_matches = "never")
+
 
 table_data <- meta %>%
   relocate(Gene_id) %>%
