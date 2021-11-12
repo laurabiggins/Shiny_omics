@@ -1,4 +1,4 @@
-browser_buttons <- FALSE
+browser_buttons <- TRUE
 ## Try just having one layout!!
 
 mod_plotsUI <- function(id){
@@ -12,7 +12,25 @@ mod_plotsUI <- function(id){
       
 }
 
-mod_plotsServer <- function(id, data_long, selected_ids, id_type, panel_name, title_id = "Gene_id",  plot_legend = FALSE, plot_colours = c("#7EC247","#53A2DA"), second_factor = FALSE, accession_col = "Accession", plot_height = "200px") {
+#' Title
+#'
+#' @param id 
+#' @param data_long   long data
+#' @param selected_ids ids that have been selected
+#' @param id_type 
+#' @param panel_name name of panel used in output filename for download plots
+#' @param title_id   id type to use for individual plots - most are the gene ids, except for histones
+#' @param plot_legend  TRUE or FALSE whether to display legend for plots
+#' @param plot_colours  plot colours
+#' @param second_factor  default FALSE - for histones, a vector of media is supplied
+#' @param accession_col  column name that contains the accessions 
+#' @param plot_height  default 200px plot height 
+#'
+#' @return
+#' @export
+#'
+#' @examples
+mod_plotsServer <- function(id, data_long, selected_ids, id_type, panel_name, ylabel, title_id = "Gene_id",  plot_legend = FALSE, plot_colours = c("#7EC247","#53A2DA"), second_factor = FALSE, accession_col = "Accession", plot_height = "200px") {
   moduleServer(id, function(input, output, session) {
     
     ns_server <- NS(id)
@@ -23,6 +41,8 @@ mod_plotsServer <- function(id, data_long, selected_ids, id_type, panel_name, ti
     observeEvent(input$browser, browser())
     
     ids <- reactive(selected_ids()[[id_type]])
+    
+    common_scale <- reactiveVal(FALSE)
     
     tags_plot <- function(id, plot_name, plot_height = "200px"){
       if(!isTruthy(id)) {
@@ -35,8 +55,7 @@ mod_plotsServer <- function(id, data_long, selected_ids, id_type, panel_name, ti
      tags 
     }
     
-    
-    
+    ## renderUI plot panel ----
     output$plot_panel <- renderUI({
       
       #ids <- selected_ids[[id_type]]
@@ -77,11 +96,20 @@ mod_plotsServer <- function(id, data_long, selected_ids, id_type, panel_name, ti
         )
       }
       tagList(
-        wellPanel(class = "plot_box", 
-                  tags,
-                  downloadButton(outputId = ns_server("download_plots"), label = "Download pdf"))
+        wellPanel(
+          class = "plot_box", 
+          tags,
+          br(),
+          fluidRow(
+            column(6, 
+              downloadButton(outputId = ns_server("download_plots"), label = "Download pdf")
+            ),
+            column(6, 
+              checkboxInput(inputId = ns_server("common_scale"), label = "common scale")
+            )
+          )
         )
-      #)
+      )
       
       #tagList(tags, downloadButton(outputId = ns_server("download_plots"), label = "Download pdf"))
     })
@@ -127,41 +155,64 @@ mod_plotsServer <- function(id, data_long, selected_ids, id_type, panel_name, ti
       )
     })
 
-    ## protein acid plots ----
-    acid_boxplot <- function(data, title, box_colour, second_factor = FALSE){
+    ## box plot function ----
+    custom_boxplot <- function(data, title, box_colour, ylabel = "custom label", second_factor = FALSE){
 
       if(isTruthy(second_factor)){
-        ggplot(data, aes(x = condition, y = value, fill = condition, colour = .data[[second_factor]])) +
+        p <- ggplot(data, aes(x = condition, y = value, fill = condition, colour = .data[[second_factor]])) +
           geom_boxplot(lwd = 1.2, fatten = 0.5) +
-          xlab("") +
-          col_scale +
-          scale_colour_manual(values = c("black", "red4", "blue4")) +
-          ggtitle(title)#+
+          scale_colour_manual(values = c("black", "red4", "blue4")) 
+          # xlab("") +
+          # col_scale +
+          # ggtitle(title) +
+          # ylab(ylabel)
          # theme_minimal()
       } else {
-        ggplot(data, aes(x = condition, y = value, fill = condition)) +
+        p <- ggplot(data, aes(x = condition, y = value, fill = condition)) +
           geom_boxplot() +
-          xlab("") +
-          col_scale +
-          ggtitle(title) +
-          #theme_minimal() +
+          # xlab("") +
+          # col_scale +
+          # ggtitle(title) +
+          # ylab(ylabel) +
+          # #theme_minimal() +
           theme(legend.position = "none")
       }
+      p <- p + 
+        xlab("") +
+        col_scale +
+        ggtitle(title) +
+        ylab(ylabel)
+      
+      
+      if(input$common_scale){
+        p + ylim(filtered_data_min_max())
+      } else p
+      
     }
+    
+    
+    ## filtered data ----
     
     filtered_data <- reactive({
       req(ids())
       filter(data_long(), .data[[accession_col]] %in% ids())
     })
     
+    ## filtered data range ----
+    filtered_data_min_max <- reactive({
+      req(filtered_data)
+      range(filtered_data()$value)
+    })
+    
+    
+    ## plot reactives ----
     gg_plot1 <- reactive({
       if(!isTruthy(ids()[1])) return (NULL)
       id <- ids()[1]
       req(id)
       data_filt <- filter(filtered_data(), .data[[accession_col]] == id)
       plot_title <- pull(data_filt, .data[[title_id]])[1]
-      p <- acid_boxplot(data_filt, title = plot_title, plot_colours, second_factor = second_factor)
-      p
+      custom_boxplot(data_filt, title = plot_title, ylabel = ylabel, plot_colours, second_factor = second_factor)
     })
     
     gg_plot2 <- reactive({
@@ -170,7 +221,7 @@ mod_plotsServer <- function(id, data_long, selected_ids, id_type, panel_name, ti
       id <- ids()[2]
       data_filt <- filter(data_long(), .data[[accession_col]] == id)
       plot_title <- pull(data_filt, .data[[title_id]])[1]
-      acid_boxplot(data_filt, title = plot_title, plot_colours, second_factor = second_factor)
+      custom_boxplot(data_filt, title = plot_title, ylabel = ylabel, plot_colours, second_factor = second_factor)
     }) 
     
     gg_plot3 <- reactive({
@@ -180,7 +231,7 @@ mod_plotsServer <- function(id, data_long, selected_ids, id_type, panel_name, ti
         id <- ids()[3]
         data_filt <- filter(data_long(), .data[[accession_col]] == id)
         plot_title <- pull(data_filt, .data[[title_id]])[1]
-        acid_boxplot(data_filt, title = plot_title, plot_colours, second_factor = second_factor)
+        custom_boxplot(data_filt, title = plot_title, ylabel = ylabel, plot_colours, second_factor = second_factor)
       }
     }) 
     
@@ -190,16 +241,16 @@ mod_plotsServer <- function(id, data_long, selected_ids, id_type, panel_name, ti
       id <- ids()[4]
       data_filt <- filter(data_long(), .data[[accession_col]] == id)
       plot_title <- pull(data_filt, .data[[title_id]])[1]
-      acid_boxplot(data_filt, title = plot_title, plot_colours, second_factor = second_factor)
+      custom_boxplot(data_filt, title = plot_title, ylabel = ylabel, plot_colours, second_factor = second_factor)
     }) 
      
-    output$plot1 <- renderPlot(gg_plot1()) %>% bindCache(ids()[1], data_long()) # could probably pass the name of the dataset - would be 
+    output$plot1 <- renderPlot(gg_plot1()) %>% bindCache(ids()[1], input$common_scale)#, data_long()) # could probably pass the name of the dataset - would be 
     # more efficient to compare than the whole dataset
     
-    output$plot2 <- renderPlot(gg_plot2()) %>% bindCache(ids()[2], data_long())
+    output$plot2 <- renderPlot(gg_plot2()) %>% bindCache(ids()[2], input$common_scale)
     
-    output$plot3 <- renderPlot(gg_plot3()) %>% bindCache(ids()[3], data_long())
+    output$plot3 <- renderPlot(gg_plot3()) %>% bindCache(ids()[3], input$common_scale)
     
-    output$plot4 <- renderPlot(gg_plot4()) %>% bindCache(ids()[4], data_long())
+    output$plot4 <- renderPlot(gg_plot4()) %>% bindCache(ids()[4], input$common_scale)
   })   
 }            
