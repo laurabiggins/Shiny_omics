@@ -20,6 +20,7 @@ acid_pval_fc <- readRDS("data/acid_pval_fc.rds")
 genes_long <- readRDS("data/genes_long.rds") 
 gene_pval_fc <- readRDS("data/gene_pval_fc.rds") 
 histone_data <- readRDS("data/histone_data.rds")
+all_histone_links <- readRDS("data/all_histone_links.rds")
 histone_pval_fc <- readRDS("data/histone_pval_fc.rds")
 chep_data <- readRDS("data/chep_data.rds")
 chep_pval_fc <- readRDS("data/chep_pval_fc.rds")
@@ -142,9 +143,9 @@ ui <- fluidPage(
     ),
     conditionalPanel(
         condition = "input.plot_panels_to_display.includes('histones')",
-        column(width = 6, uiOutput("histones", class = "plot_box"))
-    ) 
- ),
+        column(width = 12, uiOutput("all_histones", class = "plot_box"))
+    )
+  ),
   br(),
   if(browser_buttons) actionButton("browser", "browser")
 )
@@ -161,6 +162,8 @@ server <- function(input, output, session) {
   
   ## filtered datatable ----
   filtered_meta <- reactiveVal()
+  
+  selected_histone_media <- reactiveVal("PXGL")
   
   # key for data table ----
   key <- reactive({
@@ -211,11 +214,32 @@ server <- function(input, output, session) {
   
   filtered_histone_dataset <- reactive({
 
+    req(filtered_meta()$histone_mark)
+    selected_histones <- filtered_meta()$histone_mark
+    
+    if(any(str_detect(selected_histones, ","), na.rm = TRUE)){
+      multi_links <- which(str_detect(selected_histones, ","))
+      multi_genes <- filtered_meta()$Gene_id[multi_links]
+      
+      histones_to_add <- all_histone_links %>%
+        filter(Gene_id %in% multi_genes) %>%
+        pull(histone_mark)
+      
+      selected_histones <- selected_histones[-multi_links]
+      selected_histones <- c(selected_histones, histones_to_add)
+    }
+    
+    selected_histones <- unique(selected_histones[!is.na(selected_histones)])
+
     histone_data %>%
       filter(condition %in% input$conditions_to_display) %>%
-      filter(medium %in% input$histone_media)
+      filter(medium %in% input$histone_media) %>%
+      filter(histone_mark %in% selected_histones)
+    
   })
 
+  ## volcano ----
+  ### volcano dataset ----
   volcano_dataset <- reactive({
     
     volcano_ds <- switch(input$volcano_type,
@@ -228,7 +252,7 @@ server <- function(input, output, session) {
        filter(condition == input$volcano_condition_type)
   })
   
-  ## volcano plot ----
+  ### volcano plot ----
   output$volcano <- renderPlotly({
     
     first_col <- colnames(volcano_dataset())[1]
@@ -266,6 +290,12 @@ server <- function(input, output, session) {
     selectRows(table_proxy, selected = NULL)
     set_ids_to_null()
   })
+  
+  observeEvent(input$histone_media, {
+    
+    selected_histone_media(input$histone_media)
+  })
+  
   
   ### select datatypes ----
   observeEvent(input$select_all_plots, {
@@ -511,47 +541,37 @@ server <- function(input, output, session) {
     }
   })
    
-  ### histones ----
-   
-  output$histones <- renderUI({
+  ### all histones ----
+  output$all_histones <- renderUI({
     
     if(!is.null(filtered_meta()[["histone_mark"]])){
-      if(!isTruthy(filtered_meta()[["histone_mark"]])){
-        wellPanel(
-          id = "histone_panel", 
-          class = "plot_panel",
-          h2("Histone modifications", class = "panel_title"),
-          p(class = "no_data", "No histone data for current selections")
-        )
+      if(!isTruthy(filtered_histone_dataset()) | nrow(filtered_histone_dataset()) == 0){
+          welltags <- p(class = "no_data", "No histone data for current selections")
       } else {
-    
-        req(filtered_meta()[["histone_mark"]])
-        histoneUI <- mod_plotsUI("histone_panel")
-        mod_plotsServer(
-          "histone_panel", 
-          filtered_histone_dataset, 
-          filtered_meta, 
+        req(filtered_histone_dataset())
+        histoneUI <- mod_histone_plotsUI("all_histone_panel")
+        mod_histone_plotsServer(
+          "all_histone_panel", 
+          data_long = filtered_histone_dataset, 
           panel_name = "histone_mark", 
-          id_type = "histone_mark", 
-          accession_col = "histone_mark",
-          title_id = "histone_mark",
-          second_factor = "medium", 
           ylabel = "normalised abundance"
         )
-        
-        wellPanel(
-          id = "histone_panel", 
-          class = "plot_panel",
-          h2("Histone modifications", class = "panel_title"),
-          histoneUI,
-          br(),
-          p("If a plot is blank, histone data may only be available for a different medium."),
-          checkboxGroupInput(inputId = "histone_media", label = NULL, inline = TRUE, 
-                             choices = histone_media, selected = histone_media[1])
-        )
+        welltags <- histoneUI
       }
+      wellPanel(
+        #id = "all_histone_panel", 
+        class = "plot_panel",
+        h2("Histone modifications", class = "panel_title"),
+        welltags,
+        br(),
+        p("Histone data may only be available for a different medium."),
+        checkboxGroupInput(inputId = "histone_media", label = NULL, inline = TRUE, 
+                           choices = histone_media, selected = selected_histone_media())
+      )
     }
   })
+  
+  
         
   observeEvent(input$browser, browser())
     
