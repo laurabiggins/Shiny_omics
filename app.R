@@ -197,19 +197,20 @@ server <- function(input, output, session) {
   filtered_acid_dataset <- reactive({
     
     data_long %>%
-      filter(condition %in% input$conditions_to_display)
+      filter(condition %in% input$conditions_to_display) %>%
+      filter(Accession %in% filtered_meta()$Accession)
   })
   
   filtered_chep_dataset <- reactive({
     
     chep_data %>%
-      filter(condition %in% input$conditions_to_display)
+      filter(condition %in% input$conditions_to_display) %>%
+      filter(Majority.protein.IDs %in% filtered_meta()$Majority.protein.IDs)
+    
   })
   
   filtered_gene_dataset <- reactive({
-    
-    #selected_genes <- filtered_meta()$Gene_expr_id
-    
+
     genes_long %>%
       filter(condition %in% input$conditions_to_display) %>%
       filter(Gene_expr_id %in% filtered_meta()$Gene_expr_id)
@@ -446,11 +447,9 @@ server <- function(input, output, session) {
         mod_plotsServer(
           "gene_expr_panel", 
           filtered_gene_dataset, 
-          filtered_meta, 
+          selected_ids = filtered_meta()$Gene_expr_id,
+          plot_names = filtered_meta()$Gene_expr_id,
           panel_name = "gene_expression", 
-          id_type = "Gene_expr_id", 
-          accession_col = "Gene_expr_id", 
-          title_id = "Gene_expr_id",
           ylabel = "log2 normalised counts"
         )
       }  
@@ -483,10 +482,9 @@ server <- function(input, output, session) {
         mod_plotsServer(
           "protein1_panel", 
           filtered_acid_dataset,  
-          filtered_meta, 
+          selected_ids = filtered_meta()$Accession, 
           panel_name = "acid_extractome", 
-          id_type = "Accession",
-          accession_col = "Accession",
+          plot_names = filtered_meta()$Gene_id,
           ylabel = "normalised abundance"
         )
       }
@@ -513,10 +511,9 @@ server <- function(input, output, session) {
         mod_plotsServer(
           "protein2_panel", 
           filtered_chep_dataset, 
-          filtered_meta, 
+          selected_ids = filtered_meta()$Majority.protein.IDs, 
+          plot_names = filtered_meta()$Gene_id,
           panel_name = "chromatin_associated_protein", 
-          id_type = "Majority.protein.IDs", 
-          accession_col = "Majority.protein.IDs",
           ylabel = "LFQ intensity"
         )
       }   
