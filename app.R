@@ -208,8 +208,12 @@ server <- function(input, output, session) {
   
   filtered_gene_dataset <- reactive({
     
+    #selected_genes <- filtered_meta()$Gene_expr_id
+    
     genes_long %>%
-      filter(condition %in% input$conditions_to_display)
+      filter(condition %in% input$conditions_to_display) %>%
+      filter(Gene_expr_id %in% filtered_meta()$Gene_expr_id)
+      
   })
   
   filtered_histone_dataset <- reactive({
@@ -233,7 +237,8 @@ server <- function(input, output, session) {
 
     histone_data %>%
       filter(condition %in% input$conditions_to_display) %>%
-      filter(medium %in% input$histone_media) %>%
+      #filter(medium %in% input$histone_media) %>%
+      filter(medium %in% selected_histone_media()) %>%
       filter(histone_mark %in% selected_histones)
     
   })
@@ -433,17 +438,11 @@ server <- function(input, output, session) {
     
     if(!is.null(filtered_meta()[["Gene_expr_id"]])){
       if(!isTruthy(filtered_meta()[["Gene_expr_id"]])){
-        wellPanel(
-          id = "gene_expr_panel", 
-          class = "plot_panel",
-         # actionButton("close_gene_panel", label = NULL, icon = icon("window-close"), class = "close_panel"),
-          h2("Gene expression", class = "panel_title"),
-          p(class = "no_data", "No data for selected genes")
-        )
+        welltags <- p(class = "no_data", "No data for selected genes")
       } else {
-      
         req(filtered_meta()$Gene_expr_id)
         gene_exprUI <- mod_plotsUI("gene_expr_panel")
+        welltags <- gene_exprUI
         mod_plotsServer(
           "gene_expr_panel", 
           filtered_gene_dataset, 
@@ -454,14 +453,13 @@ server <- function(input, output, session) {
           title_id = "Gene_expr_id",
           ylabel = "log2 normalised counts"
         )
-        
-        wellPanel(
-          id = "gene_expr_panel", 
-          class = "plot_panel",
-          h2("Gene expression", class = "panel_title"),
-          gene_exprUI
-        )
-      }
+      }  
+      wellPanel(
+        id = "gene_expr_panel", 
+        class = "plot_panel",
+        h2("Gene expression", class = "panel_title"),
+        welltags
+      )
     }  
   }) 
  
@@ -477,15 +475,11 @@ server <- function(input, output, session) {
      
     if(!is.null(filtered_meta()[["Accession"]])){
       if(!isTruthy(filtered_meta()[["Accession"]])){
-        wellPanel(
-          id = "prot_acid_panel", 
-          class = "plot_panel",
-          h2("Acid extractome protein abundance", class = "panel_title"),
-          p(class = "no_data", "No data for selected genes")
-        )
+        welltags <- p(class = "no_data", "No data for selected genes")
       } else {
         req(filtered_meta()[["Accession"]])
         protein1UI <- mod_plotsUI("protein1_panel")
+        welltags <- protein1UI
         mod_plotsServer(
           "protein1_panel", 
           filtered_acid_dataset,  
@@ -495,14 +489,13 @@ server <- function(input, output, session) {
           accession_col = "Accession",
           ylabel = "normalised abundance"
         )
-      
-        wellPanel(
-          id = "prot_acid_panel", 
-          class = "plot_panel",
-          h2("Acid extractome protein abundance", class = "panel_title"),
-          protein1UI
-        )
       }
+      wellPanel(
+        id = "prot_acid_panel", 
+        class = "plot_panel",
+        h2("Acid extractome protein abundance", class = "panel_title"),
+        welltags
+      )
     }
   })
    
@@ -512,15 +505,11 @@ server <- function(input, output, session) {
     
     if(!is.null(filtered_meta()[["Majority.protein.IDs"]])){
       if(!isTruthy(filtered_meta()[["Majority.protein.IDs"]])){
-        wellPanel(
-          id = "prot_chromatin_panel", 
-          class = "plot_panel",
-          h2("Chromatin protein abundance", class = "panel_title"),
-          p(class = "no_data", "No data for selected genes")
-        )
+        welltags <- p(class = "no_data", "No data for selected genes")
       } else {
         req(filtered_meta()[["Majority.protein.IDs"]])
         protein2UI <- mod_plotsUI("protein2_panel")
+        welltags <- protein2UI
         mod_plotsServer(
           "protein2_panel", 
           filtered_chep_dataset, 
@@ -530,14 +519,13 @@ server <- function(input, output, session) {
           accession_col = "Majority.protein.IDs",
           ylabel = "LFQ intensity"
         )
-        
-        wellPanel(
-          id = "prot_chromatin_panel", 
-          class = "plot_panel",
-          h2("Chromatin protein abundance", class = "panel_title"),
-          protein2UI
-        )
-      }
+      }   
+      wellPanel(
+        id = "prot_chromatin_panel", 
+        class = "plot_panel",
+        h2("Chromatin protein abundance", class = "panel_title"),
+        welltags
+      )
     }
   })
    
