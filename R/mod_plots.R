@@ -37,13 +37,15 @@ mod_plotsServer <- function(
     
     ns_server <- NS(id)
 
-    custom_plot_colours <- c(
-      Naive = "#7EC247", 
-      Primed = "#53A2DA", 
-      `Naive+PRC2i` = "#C8E5B0", 
-      `Primed+PRC2i` = "#B5D7EF"
+    col_scale <- scale_fill_manual(
+      name = "condition", 
+      values = c(
+        Naive = "#7EC247", 
+        Primed = "#53A2DA", 
+        `Naive+PRC2i` = "#C8E5B0", 
+        `Primed+PRC2i` = "#B5D7EF"
+      )
     )
-    col_scale <- scale_fill_manual(name = "condition", values = custom_plot_colours)
     
     observeEvent(input$browser, browser())
     
@@ -66,14 +68,12 @@ mod_plotsServer <- function(
     
     ## renderUI plot panel ----
     output$plot_panel <- renderUI({
-
+      
       if(is.null(plot_names)) tags <- NULL
       
       req(plot_names)
       
-      if(length(plot_names) > 4){
-        tags <- NULL
-      } 
+      if(length(plot_names) > 4) tags <- NULL
       
       tags <- tagList(
         fluidRow(purrr::map(1:length(plot_names), individual_plot))

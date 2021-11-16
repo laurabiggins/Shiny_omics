@@ -35,6 +35,11 @@ datatypes <- c(
  "Histone modification abundance" = "histones"
 )
 
+volcano_highlights <- scale_color_manual(
+  name = "selected", 
+  values = c(not = "#ffffff00", selected = "red" )
+)
+
 # UI ----
 ui <- fluidPage(
 
@@ -84,7 +89,7 @@ ui <- fluidPage(
             inputId = "volcano_condition_type", 
             label = NULL, 
             choices = list("naive vs primed" = "naive_primed", 
-                          "naive vs naive+PRC2i" = "naive_naive2i",
+                           "naive vs naive+PRC2i" = "naive_naive2i",
                            "primed vs primed+PRC2i" = "primed_primed2i"),
             inline = TRUE
           ),
@@ -143,7 +148,11 @@ ui <- fluidPage(
     ),
     conditionalPanel(
         condition = "input.plot_panels_to_display.includes('histones')",
-        column(width = 12, uiOutput("all_histones", class = "plot_box"))
+        column(width = 10, uiOutput("all_histones", class = "plot_box"))
+    ),
+    conditionalPanel(
+      condition = "input.plot_panels_to_display.includes('histones')",
+      column(width = 2, uiOutput("histone_media", class = "plot_box"))
     )
   ),
   br(),
@@ -189,7 +198,25 @@ server <- function(input, output, session) {
   ## render filtered meta ----
   output$selected_table <- DT::renderDataTable({
     req(filtered_meta())
-    dt_setup(filtered_meta() %>% select(Gene_id, Description, histone_mark), selection = "none")
+    selected_table <- filtered_meta() %>%
+      select(Gene_id, Description, Gene_expr_id, Majority.protein.IDs, Accession, histone_mark) %>%
+      rename(`Acid id` = Accession, 
+             `ChEP id` = Majority.protein.IDs, 
+             `Gene expr id`=Gene_expr_id, 
+             `Histone mark` = histone_mark) %>%
+      replace(is.na(.), "no data")
+    
+    datatable(
+      selected_table,
+      rownames = FALSE,
+      options = list(dom = "t", scrollX = TRUE, autoWidth = FALSE)
+    ) %>%
+      formatStyle(
+        c("Acid id", "ChEP id", "Gene expr id", "Histone mark"),
+        backgroundColor = styleEqual(levels = "no data",  values = '#CFCCC9', default = '#B5E3D9')
+      ) %>% 
+      formatStyle(0, target = 'row', `font-size` = '70%') %>%
+      formatStyle(1, `font-size` = '120%')
   })
   
   
@@ -219,7 +246,7 @@ server <- function(input, output, session) {
   
   filtered_histone_dataset <- reactive({
 
-    req(filtered_meta()$histone_mark)
+    #req(filtered_meta()$histone_mark)
     selected_histones <- filtered_meta()$histone_mark
     
     if(any(str_detect(selected_histones, ","), na.rm = TRUE)){
@@ -244,18 +271,30 @@ server <- function(input, output, session) {
     
   })
 
-  ## volcano ----
-  ### volcano dataset ----
   volcano_dataset <- reactive({
     
-    volcano_ds <- switch(input$volcano_type,
-           histones     = histone_pval_fc,
-           acid_protein = acid_pval_fc,
-           chr_protein  = chep_pval_fc,
-           gene_expr    = gene_pval_fc)
+    volcano_ds <- switch(
+      input$volcano_type,
+        histones = mutate(
+          histone_pval_fc, 
+          selected = if_else(histone_mark %in% filtered_histone_dataset()$histone_mark, "selected", "not")
+        ),
+        acid_protein = mutate(
+          acid_pval_fc,
+          selected = if_else(Accession %in% filtered_acid_dataset()$Accession, "selected", "not")
+        ),
+        chr_protein  = mutate(
+          chep_pval_fc,
+          selected = if_else(Majority.protein.IDs %in% filtered_chep_dataset()$Majority.protein.IDs , "selected", "not")
+        ),
+        gene_expr = mutate(
+          gene_pval_fc, 
+          selected = if_else(Gene_expr_id %in% filtered_gene_dataset()$Gene_expr_id, "selected", "not")
+        )
+    )
     
     volcano_ds %>%
-       filter(condition == input$volcano_condition_type)
+      filter(condition == input$volcano_condition_type)
   })
   
   ### volcano plot ----
@@ -264,29 +303,15 @@ server <- function(input, output, session) {
     first_col <- colnames(volcano_dataset())[1]
     
     p <- volcano_dataset() %>%
-      ggplot(aes(x = log2fc, y = -log10(pval), key = key(), label = Gene_id, text = substr(.data[[first_col]], 1, 15))) +
-      geom_point(shape = 20) +
+      ggplot(aes(x = log2fc, y = -log10(pval), key = key(), color = selected, label = Gene_id, text = substr(.data[[first_col]], 1, 15))) +
+      geom_point(shape = 21, stroke = 1, size = 3, fill = "black") +
       geom_hline(yintercept = -log10(0.05), col = "red", linetype = "dashed") +
       geom_vline(xintercept = c(-1,1), linetype = "dashed", col = "darkgray") +
-      theme(legend.position="none")
+      theme(legend.position = "none") +
+      volcano_highlights 
     
-      if(! is.null(filtered_meta())) {
-
-        selected_subset <- left_join(filtered_meta(), volcano_dataset())
-        
-        if(! is.null(selected_subset)){
-          p <- p + geom_point(
-                    data = selected_subset,
-                    aes(key = NULL),
-                    shape = 21,
-                    colour = "red",
-                    # fill = colours_needed, # this works with ggplot but not plotly
-                    stroke = 1,
-                    size = 3
-                )
-        }
-      }
-      ggplotly(p, tooltip = c("label", "text"))
+    #p <- p + geom_text(nudge_x = 0.5, nudge_y = 0.5, size = 4, fontface = "bold")
+    ggplotly(p, tooltip = c("label", "text"))
         
     })
     
@@ -298,7 +323,8 @@ server <- function(input, output, session) {
   })
   
   observeEvent(input$histone_media, {
-    
+    print("selected media = ")
+    print(input$histone_media)
     selected_histone_media(input$histone_media)
   })
   
@@ -376,26 +402,35 @@ server <- function(input, output, session) {
 
     d <- event_data("plotly_click")
     req(d)
-    row_no <- as.numeric(d$key)
     
-    selected_accessions <- volcano_dataset() %>%
-      slice(row_no) %>%
-      pull(1)
-    
-    id_type <- colnames(volcano_dataset())[1]
-    row_to_add <- filter(table_data, .data[[id_type]] == selected_accessions)
-
-    if(is.null(filtered_meta())) {
-      filtered_meta(row_to_add)
-    } else if (nrow(filtered_meta()) < 4) {
-      filtered_meta(bind_rows(filtered_meta(), row_to_add))
-    } else if (nrow(filtered_meta()) == 4){
+    if(input$volcano_type == "histones"){
       shinyalert::shinyalert(
         title = "",
-        text = "Maximum of 4 data points will be shown. \n
-         Double click on an empty area of the plot to deselect all."
+        text = "Choose a different type of data to enable selections."
       )
-    } 
+    }
+    else {
+      row_no <- as.numeric(d$key)
+      
+      selected_accessions <- volcano_dataset() %>%
+        slice(row_no) %>%
+        pull(1)
+      
+      id_type <- colnames(volcano_dataset())[1]
+      row_to_add <- filter(table_data, .data[[id_type]] == selected_accessions)
+  
+      if(is.null(filtered_meta())) {
+        filtered_meta(row_to_add)
+      } else if (nrow(filtered_meta()) < 4) {
+        filtered_meta(bind_rows(filtered_meta(), row_to_add))
+      } else if (nrow(filtered_meta()) == 4){
+        shinyalert::shinyalert(
+          title = "",
+          text = "Maximum of 4 data points will be shown. \n
+           Double click on an empty area of the plot to deselect all."
+        )
+      } 
+    }
   })
 
   # this wipes out other selections at the moment  
@@ -404,27 +439,35 @@ server <- function(input, output, session) {
     d <- event_data("plotly_selected")
     
     req(d)
-    filtered_meta(NULL)
-    row_numbers <- as.numeric(d$key)
     
-    if(length(row_numbers) > 4){
+    if(input$volcano_type == "histones"){
       shinyalert::shinyalert(
         title = "",
-        text = "Maximum of 4 data points will be shown. \n
-        Try zooming in if points are too close together. Double click to deselect all."
+        text = "Select a different type of data to enable selections."
       )
-      row_numbers <- row_numbers[1:4]
+    } else {
+    
+      filtered_meta(NULL)
+      row_numbers <- as.numeric(d$key)
+      
+      if(length(row_numbers) > 4){
+        shinyalert::shinyalert(
+          title = "",
+          text = "Maximum of 4 data points will be shown. \n
+          Try zooming in if points are too close together. Double click to deselect all."
+        )
+        row_numbers <- row_numbers[1:4]
+      }
+      
+      selected_accessions <- volcano_dataset() %>%
+        slice(row_numbers) %>%
+        pull(1)
+      
+      id_type <- colnames(volcano_dataset())[1]
+      selected_rows <- filter(table_data, .data[[id_type]] %in% selected_accessions)
+  
+      filtered_meta(selected_rows)
     }
-    
-    selected_accessions <- volcano_dataset() %>%
-      slice(row_numbers) %>%
-      pull(1)
-    
-    id_type <- colnames(volcano_dataset())[1]
-    selected_rows <- filter(table_data, .data[[id_type]] %in% selected_accessions)
-
-    filtered_meta(selected_rows)
-    
   })
 
       
@@ -525,6 +568,18 @@ server <- function(input, output, session) {
       )
     }
   })
+  
+  output$histone_media <- renderUI({
+    wellPanel(
+      #id = "all_histone_panel", 
+      class = "plot_panel",
+      h2("Histone media", class = "panel_title"),
+      checkboxGroupInput(inputId = "histone_media", label = NULL, 
+                         choices = histone_media, selected = histone_media[1]),
+      p("Some histone modifications have data for all media, others for only one or two types.")
+    )
+  })
+  
    
   ### all histones ----
   output$all_histones <- renderUI({
@@ -547,11 +602,11 @@ server <- function(input, output, session) {
         #id = "all_histone_panel", 
         class = "plot_panel",
         h2("Histone modifications", class = "panel_title"),
-        welltags,
-        br(),
-        p("Histone data may only be available for a different medium."),
-        checkboxGroupInput(inputId = "histone_media", label = NULL, inline = TRUE, 
-                           choices = histone_media, selected = selected_histone_media())
+        welltags#,
+        #br(),
+       # p("Histone data may only be available for a different medium."),
+        # checkboxGroupInput(inputId = "histone_media", label = NULL, inline = TRUE, 
+        #                    choices = histone_media, selected = selected_histone_media())
       )
     }
   })
