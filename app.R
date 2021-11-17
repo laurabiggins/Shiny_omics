@@ -17,7 +17,8 @@ gene_id_table <- readRDS("data/gene_id_table.rds") %>%
 table_data <- readRDS("data/table_data.rds")
 data_long <- readRDS("data/acid_long.rds")
 acid_pval_fc <- readRDS("data/acid_pval_fc.rds")
-genes_long <- readRDS("data/genes_long.rds") 
+genes_long <- readRDS("data/genes_long.rds") %>%
+  mutate(Gene_id = Gene_expr_id)
 gene_pval_fc <- readRDS("data/gene_pval_fc.rds") 
 histone_data <- readRDS("data/histone_data.rds")
 all_histone_links <- readRDS("data/all_histone_links.rds")
@@ -195,12 +196,13 @@ server <- function(input, output, session) {
       
   })
   
-  ## render filtered meta ----
-  output$selected_table <- DT::renderDataTable({
+  selected_datatable <- reactive({
+    
     req(filtered_meta())
     selected_table <- filtered_meta() %>%
       select(Gene_id, Description, Gene_expr_id, Majority.protein.IDs, Accession, histone_mark) %>%
-      rename(`Acid id` = Accession, 
+      rename(`Gene id` = Gene_id,
+             `Acid id` = Accession, 
              `ChEP id` = Majority.protein.IDs, 
              `Gene expr id`=Gene_expr_id, 
              `Histone mark` = histone_mark) %>%
@@ -209,7 +211,25 @@ server <- function(input, output, session) {
     datatable(
       selected_table,
       rownames = FALSE,
-      options = list(dom = "t", scrollX = TRUE, autoWidth = FALSE)
+      options = list(
+        dom = "t", 
+        scrollX = TRUE, 
+        autoWidth = FALSE,
+        columnDefs = list(
+          list(
+            targets = c(3,4),
+            render = JS(
+              "function(data, type, row, meta) {",
+              "return type === 'display' && data.length > 15 ?",
+              "'<span title=\"' + data + '\">' + data.substr(0, 15) + '...</span>' : data;",
+              "}")
+          ),
+          list(
+            targets = 1,
+            width = "900px"
+          )
+        )
+      )  
     ) %>%
       formatStyle(
         c("Acid id", "ChEP id", "Gene expr id", "Histone mark"),
@@ -217,6 +237,15 @@ server <- function(input, output, session) {
       ) %>% 
       formatStyle(0, target = 'row', `font-size` = '70%') %>%
       formatStyle(1, `font-size` = '120%')
+    
+  })
+  
+  
+  ## render filtered meta ----
+  output$selected_table <- DT::renderDataTable({
+    
+    req(selected_datatable())
+    selected_datatable()
   })
   
   
@@ -304,7 +333,7 @@ server <- function(input, output, session) {
     
     p <- volcano_dataset() %>%
       ggplot(aes(x = log2fc, y = -log10(pval), key = key(), color = selected, label = Gene_id, text = substr(.data[[first_col]], 1, 15))) +
-      geom_point(shape = 21, stroke = 1, size = 3, fill = "black") +
+      geom_point(shape = 21, stroke = 1, size = 2, fill = "black") +
       geom_hline(yintercept = -log10(0.05), col = "red", linetype = "dashed") +
       geom_vline(xintercept = c(-1,1), linetype = "dashed", col = "darkgray") +
       theme(legend.position = "none") +
@@ -491,7 +520,6 @@ server <- function(input, output, session) {
           "gene_expr_panel", 
           filtered_gene_dataset, 
           selected_ids = filtered_meta()$Gene_expr_id,
-          plot_names = filtered_meta()$Gene_expr_id,
           panel_name = "gene_expression", 
           ylabel = "log2 normalised counts"
         )
@@ -527,7 +555,6 @@ server <- function(input, output, session) {
           filtered_acid_dataset,  
           selected_ids = filtered_meta()$Accession, 
           panel_name = "acid_extractome", 
-          plot_names = filtered_meta()$Gene_id,
           ylabel = "normalised abundance"
         )
       }
@@ -555,7 +582,6 @@ server <- function(input, output, session) {
           "protein2_panel", 
           filtered_chep_dataset, 
           selected_ids = filtered_meta()$Majority.protein.IDs, 
-          plot_names = filtered_meta()$Gene_id,
           panel_name = "chromatin_associated_protein", 
           ylabel = "LFQ intensity"
         )
