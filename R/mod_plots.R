@@ -94,7 +94,7 @@ mod_plotsServer <- function(
     ### UI plot functions ----
     tags_plot <- function(id, plot_name, plot_height = "200px"){
       if(!isTruthy(id)) {
-        tags <- tagList(p(class = "no_data", "No data available", height = plot_height))
+        tags <- tagList(div(class = "no_data", "No data available", height = plot_height))
       } else {
         tags <- tagList(
           plotOutput(ns_server(plot_name), height = plot_height)

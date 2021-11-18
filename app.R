@@ -157,6 +157,8 @@ ui <- fluidPage(
     )
   ),
   br(),
+  p("Any problems please email laura.biggins@babraham.ac.uk", 
+    style = "font-size:12px", align = "right"),
   if(browser_buttons) actionButton("browser", "browser")
 )
 
@@ -226,7 +228,12 @@ server <- function(input, output, session) {
           ),
           list(
             targets = 1,
-            width = "900px"
+            width = "900px",
+            render = JS(
+              "function(data, type, row, meta) {",
+              "return type === 'display' && data.length > 30 ?",
+              "'<span title=\"' + data + '\">' + data.substr(0, 30) + '...</span>' : data;",
+              "}")
           )
         )
       )  
@@ -602,7 +609,7 @@ server <- function(input, output, session) {
       h2("Histone media", class = "panel_title"),
       checkboxGroupInput(inputId = "histone_media", label = NULL, 
                          choices = histone_media, selected = histone_media[1]),
-      p("Some histone modifications have data for all media, others for only one or two types.")
+      p("Data for different histone modifications may be available for one or more of the media.")
     )
   })
   
