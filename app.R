@@ -7,7 +7,7 @@ library(htmlwidgets)
 # # TODO: sort out main data table
 # # tool tip text on volcano plot
 # 
-browser_buttons <- TRUE
+browser_buttons <- FALSE
 # 
 gene_id_table <- readRDS("data/gene_id_table.rds") %>%
   rename(`Acid extract` = `acid extractome`, `Gene expr` = `gene expr`, ChEP = chep, Histone = histone) %>%
@@ -33,7 +33,7 @@ datatypes <- c(
  "Gene expression" = "gene_expr", 
  "Acid extractome protein abundance" = "acid_protein",
  "Chromatin-associated protein abundance" = "chr_protein",
- "Histone modification abundance" = "histones"
+ "Histone modifications" = "histones"
 )
 
 volcano_highlights <- scale_color_manual(
@@ -66,12 +66,16 @@ ui <- fluidPage(
         width = 6,
         wellPanel(
           id = "table_panel", 
-          actionButton("clear_table", label = "Clear table selections"),
+          actionButton("clear_table", label = "Clear all table selections"),
           tabsetPanel(
             tabPanel("all", 
                      br(),
                      DT::dataTableOutput("pp_table")),
-            tabPanel("selected", br(), DT::dataTableOutput("selected_table"))
+            tabPanel("selected", 
+                     br(), 
+                     DT::dataTableOutput("selected_table"),
+                     br(),
+                     actionButton("remove_selected", label = "remove selected"))
           )
         )
       ),
@@ -83,7 +87,7 @@ ui <- fluidPage(
           radioButtons(
             inputId = "volcano_type", 
             label = NULL, 
-            choices = datatypes[c(2,4,3,1)], 
+            choices = datatypes[c(2,3,1,4)], 
             inline = TRUE
           ),
           radioButtons(
@@ -117,9 +121,6 @@ ui <- fluidPage(
         )
       )
     ),
-  #),
-  ## condition type checkboxes ----
-  #wellPanel(class = "bordered_panel",
     fluidRow(
       column(3, strong("Select conditions to display in plots")),
       column(9, 
@@ -158,7 +159,7 @@ ui <- fluidPage(
   ),
   br(),
   p("Any problems please email laura.biggins@babraham.ac.uk", 
-    style = "font-size:12px", align = "right"),
+    style = "font-size:14px", align = "right"),
   if(browser_buttons) actionButton("browser", "browser")
 )
 
@@ -176,6 +177,8 @@ server <- function(input, output, session) {
   filtered_meta <- reactiveVal()
   
   selected_histone_media <- reactiveVal("PXGL")
+  
+  shinyjs::hide("remove_selected")
   
   # key for data table ----
   key <- reactive({
@@ -333,6 +336,11 @@ server <- function(input, output, session) {
       filter(condition == input$volcano_condition_type)
   })
   
+  volcano_title <- reactive({
+    if_else(input$volcano_type == "histones", "PXGL", "")
+  })
+  
+  
   ### volcano plot ----
   output$volcano <- renderPlotly({
     
@@ -344,6 +352,7 @@ server <- function(input, output, session) {
       geom_hline(yintercept = -log10(0.05), col = "red", linetype = "dashed") +
       geom_vline(xintercept = c(-1,1), linetype = "dashed", col = "darkgray") +
       theme(legend.position = "none") +
+      ggtitle(volcano_title()) +
       volcano_highlights 
     
     #p <- p + geom_text(nudge_x = 0.5, nudge_y = 0.5, size = 4, fontface = "bold")
@@ -352,15 +361,25 @@ server <- function(input, output, session) {
     })
     
   ## observeEvents ----
-  ### clear selections ----  
+  ### clear selections ---- 
+  #### clear all ----  
   observeEvent(input$clear_table, {
     selectRows(table_proxy, selected = NULL)
     set_ids_to_null()
   })
   
+  #### remove selected ----
+  observeEvent(input$remove_selected, {
+    req(input$selected_table_rows_selected)
+    #filtered_meta(slice(filtered_meta(), -input$selected_table_rows_selected))
+    new_selections <- slice(filtered_meta(), -input$selected_table_rows_selected) %>%
+      pull(rowid)
+    selectRows(table_proxy, selected = new_selections)
+  })
+  
   observeEvent(input$histone_media, {
-    print("selected media = ")
-    print(input$histone_media)
+    #print("selected media = ")
+    #print(input$histone_media)
     selected_histone_media(input$histone_media)
   })
   
@@ -398,6 +417,7 @@ server <- function(input, output, session) {
         
         selected_rows <- slice(table_data, row_numbers)
         filtered_meta(selected_rows)
+        shinyjs::show("remove_selected")
         
     }
   })
@@ -410,13 +430,15 @@ server <- function(input, output, session) {
     
     if(is.null(filtered_meta())){
       selectRows(table_proxy, selected = NULL)
+      shinyjs::hide("remove_selected")
     } else if (length(filtered_meta()$rowid) != length(input$pp_table_rows_selected)){
       selectRows(table_proxy, selected = filtered_meta()$rowid)
-      
+      shinyjs::show("remove_selected")
     } else if (any(filtered_meta()$rowid != input$pp_table_rows_selected)){
         print("discrepancy in selections!!")
         # we go with the filtered_meta() object as this gets updated from other sources i.e. the volcano plot
         selectRows(table_proxy, selected = filtered_meta()$rowid)
+        shinyjs::show("remove_selected")
     }
   })
    
@@ -424,6 +446,7 @@ server <- function(input, output, session) {
     print("setting ids to null")
     filtered_meta(NULL)
     selectRows(table_proxy, selected = NULL)
+    shinyjs::hide("remove_selected")
   } 
     
   ## plotly events ----

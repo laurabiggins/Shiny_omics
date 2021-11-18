@@ -1,4 +1,3 @@
-browser_buttons <- TRUE
 ## Try just having one layout!!
 
 mod_histone_plotsUI <- function(id){
@@ -8,7 +7,7 @@ mod_histone_plotsUI <- function(id){
   tagList(
     uiOutput(ns("plot_panel"), class = "plot_box"),
     br(),
-    if(browser_buttons) actionButton(ns("browser"), "browser")
+    actionButton(ns("browser"), "browser")
   )  
   
 }
@@ -84,6 +83,7 @@ mod_histone_plotsServer <- function(id, data_long, panel_name, ylabel) {
     }) 
  
     plot_object <- reactive({
+      if(nrow(data_long()) == 0) return (NULL)
       data_long() %>%
         ggplot(aes(x = condition, y = value, fill = condition, colour = medium)) +
         geom_boxplot(lwd = 1.2, fatten = 0.5) +
@@ -94,7 +94,10 @@ mod_histone_plotsServer <- function(id, data_long, panel_name, ylabel) {
         facet_wrap(~histone_mark, scales = y_scale())
     })
     
-    output$facet_plot <- renderPlot(plot_object(), height = plot_height(), width = plot_width())
+    output$facet_plot <- renderPlot({
+      req(plot_object())
+      plot_object()
+    }, height = plot_height(), width = plot_width())
     
     output$download_plots <- downloadHandler(
 

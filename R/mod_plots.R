@@ -1,4 +1,4 @@
-browser_buttons <- TRUE
+browser_buttons <- FALSE
 
 # plot colours
 col_scale <- ggplot2::scale_fill_manual(
