@@ -132,8 +132,8 @@ mod_plotsServer <- function(
     output$download_plots <- downloadHandler(
       
       filename = function() {
-        id_text <- paste0(plot_names, collapse = "_")
-        paste0(id_text, "_", panel_name, ".pdf")
+        #id_text <- paste0(plot_names, collapse = "_")
+        paste0(panel_name, ".pdf")
       },
       content = function(file) {
         pdf(file, onefile = FALSE)

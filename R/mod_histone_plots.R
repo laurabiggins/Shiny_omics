@@ -6,8 +6,8 @@ mod_histone_plotsUI <- function(id){
   
   tagList(
     uiOutput(ns("plot_panel"), class = "plot_box"),
-    br(),
-    actionButton(ns("browser"), "browser")
+    #br(),
+    #actionButton(ns("browser"), "browser")
   )  
   
 }
@@ -62,7 +62,7 @@ mod_histone_plotsServer <- function(id, data_long, panel_name, ylabel) {
     
     y_scale <- reactive(dplyr::if_else(input$common_scale, "fixed", "free"))
     
-    # ## renderUI plot panel ----
+    ## renderUI plot panel ----
     output$plot_panel <- renderUI({
       
       tagList(
