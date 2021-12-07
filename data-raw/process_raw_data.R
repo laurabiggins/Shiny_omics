@@ -11,8 +11,6 @@ genes_long <- gene_expr %>%
   drop_na() %>%
   rename(Gene_expr_id = Gene)
 
-saveRDS(genes_long, "data/genes_long.rds")
-
 ## chromatin acid extractome data ---- 
 
 acid_long <- acid_extractome %>% 
@@ -181,7 +179,10 @@ gene_id_table <- table_data %>%
   mutate(chep = if_else(!is.na(Majority.protein.IDs), "data available", "no data")) %>%
   mutate(`gene expr` = if_else(!is.na(Gene_expr_id), "data available", "no data")) %>%
   mutate(histone = if_else(!is.na(histone_mark), histone_mark, "no data")) %>%
-  select(rowid, Gene_id, `acid extractome`:last_col(), Accession, Majority.protein.IDs, gene_id_chep, histone_mark, Description)
+  select(rowid, Gene_id, `acid extractome`:last_col(), Accession, Majority.protein.IDs, gene_id_chep, histone_mark, Description) %>%
+  rename(`Acid extract` = `acid extractome`, `Gene expr` = `gene expr`, ChEP = chep, Histone = histone) %>%
+  select(rowid, Gene_id, `Gene expr`, ChEP, `Acid extract`, Histone, everything())
+
 
 saveRDS(gene_id_table, "data/gene_id_table.rds")
 
@@ -331,6 +332,10 @@ saveRDS(chep_pval_fc2, "data/chep_pval_fc.rds")
 saveRDS(gene_pval_fc2, "data/gene_pval_fc.rds")
 
 
+genes_long <- genes_long %>%
+  mutate(Gene_id = Gene_expr_id)
+
+saveRDS(genes_long, "data/genes_long.rds")
 
 
 

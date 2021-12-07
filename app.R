@@ -7,18 +7,18 @@ library(htmlwidgets)
 # # TODO: sort out main data table
 # # tool tip text on volcano plot
 # 
-browser_buttons <- FALSE
+browser_buttons <- TRUE
 # 
-gene_id_table <- readRDS("data/gene_id_table.rds") %>%
-  rename(`Acid extract` = `acid extractome`, `Gene expr` = `gene expr`, ChEP = chep, Histone = histone) %>%
-  select(rowid, Gene_id, `Gene expr`, ChEP, `Acid extract`, Histone, everything())
+gene_id_table <- readRDS("data/gene_id_table.rds") #%>%
+#  rename(`Acid extract` = `acid extractome`, `Gene expr` = `gene expr`, ChEP = chep, Histone = histone) %>%
+#  select(rowid, Gene_id, `Gene expr`, ChEP, `Acid extract`, Histone, everything())
 
 #used for the DT - searching
 table_data <- readRDS("data/table_data.rds")
 data_long <- readRDS("data/acid_long.rds")
 acid_pval_fc <- readRDS("data/acid_pval_fc.rds")
-genes_long <- readRDS("data/genes_long.rds") %>%
-  mutate(Gene_id = Gene_expr_id)
+genes_long <- readRDS("data/genes_long.rds") #%>%
+#  mutate(Gene_id = Gene_expr_id)
 gene_pval_fc <- readRDS("data/gene_pval_fc.rds") 
 histone_data <- readRDS("data/histone_data.rds")
 all_histone_links <- readRDS("data/all_histone_links.rds")
