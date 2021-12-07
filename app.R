@@ -1,24 +1,21 @@
 library(shiny)
-library(tidyverse)
-library(plotly)
-library(DT)
-library(htmlwidgets)
+#library(tidyverse)
+#library(plotly)
+#library(DT)
+#library(htmlwidgets)
 # 
 # # TODO: sort out main data table
 # # tool tip text on volcano plot
 # 
 browser_buttons <- TRUE
 # 
-gene_id_table <- readRDS("data/gene_id_table.rds") #%>%
-#  rename(`Acid extract` = `acid extractome`, `Gene expr` = `gene expr`, ChEP = chep, Histone = histone) %>%
-#  select(rowid, Gene_id, `Gene expr`, ChEP, `Acid extract`, Histone, everything())
+gene_id_table <- readRDS("data/gene_id_table.rds") 
 
 #used for the DT - searching
 table_data <- readRDS("data/table_data.rds")
 data_long <- readRDS("data/acid_long.rds")
 acid_pval_fc <- readRDS("data/acid_pval_fc.rds")
-genes_long <- readRDS("data/genes_long.rds") #%>%
-#  mutate(Gene_id = Gene_expr_id)
+genes_long <- readRDS("data/genes_long.rds") 
 gene_pval_fc <- readRDS("data/gene_pval_fc.rds") 
 histone_data <- readRDS("data/histone_data.rds")
 all_histone_links <- readRDS("data/all_histone_links.rds")
@@ -36,7 +33,7 @@ datatypes <- c(
  "Histone modifications" = "histones"
 )
 
-volcano_highlights <- scale_color_manual(
+volcano_highlights <- ggplot2::scale_color_manual(
   name = "selected", 
   values = c(not = "#ffffff00", selected = "red" )
 )
@@ -99,7 +96,7 @@ ui <- fluidPage(
             inline = TRUE
           ),
           br(),
-          plotlyOutput("volcano", height = "400px")
+          plotly::plotlyOutput("volcano", height = "400px")
         )
       )
     )
@@ -169,9 +166,9 @@ server <- function(input, output, session) {
    
   library(DT)
    
-  table_proxy <- dataTableProxy("pp_table")
+  table_proxy <- DT::dataTableProxy("pp_table")
   
-  hideCols(table_proxy, hide = c(0, 6:10))
+  DT::hideCols(table_proxy, hide = c(0, 6:10))
   
   ## filtered datatable ----
   filtered_meta <- reactiveVal()
@@ -188,16 +185,16 @@ server <- function(input, output, session) {
   ## main datatable ----
   output$pp_table <- DT::renderDataTable({
 
-    datatable(
+    DT::datatable(
       gene_id_table, 
       rownames = FALSE,
       options = list(dom = "ftip", pageLength = 13, scrollX = TRUE, autoWidth = FALSE)
     ) %>% 
-      formatStyle(
+      DT::formatStyle(
         c('Gene expr', 'ChEP', 'Acid extract', 'Histone'),
         backgroundColor = styleEqual(levels = "no data", values = '#CFCCC9', default = '#B5E3D9'),
         `font-size` = '60%'
-      ) %>% formatStyle(0, target = 'row', lineHeight = '50%')
+      ) %>% DT::formatStyle(0, target = 'row', lineHeight = '50%')
       
   })
   
@@ -205,15 +202,15 @@ server <- function(input, output, session) {
     
     req(filtered_meta())
     selected_table <- filtered_meta() %>%
-      select(Gene_id, Description, Gene_expr_id, Majority.protein.IDs, Accession, histone_mark) %>%
-      rename(`Gene id` = Gene_id,
+      dplyr::select(Gene_id, Description, Gene_expr_id, Majority.protein.IDs, Accession, histone_mark) %>%
+      dplyr::rename(`Gene id` = Gene_id,
              `Acid id` = Accession, 
              `ChEP id` = Majority.protein.IDs, 
              `Gene expr id`=Gene_expr_id, 
              `Histone mark` = histone_mark) %>%
       replace(is.na(.), "no data")
     
-    datatable(
+    DT::datatable(
       selected_table,
       rownames = FALSE,
       options = list(
@@ -241,12 +238,12 @@ server <- function(input, output, session) {
         )
       )  
     ) %>%
-      formatStyle(
+      DT::formatStyle(
         c("Acid id", "ChEP id", "Gene expr id", "Histone mark"),
         backgroundColor = styleEqual(levels = "no data",  values = '#CFCCC9', default = '#B5E3D9')
       ) %>% 
-      formatStyle(0, target = 'row', `font-size` = '70%') %>%
-      formatStyle(1, `font-size` = '120%')
+      DT::formatStyle(0, target = 'row', `font-size` = '70%') %>%
+      DT::formatStyle(1, `font-size` = '120%')
     
   })
   
@@ -263,23 +260,23 @@ server <- function(input, output, session) {
   filtered_acid_dataset <- reactive({
     
     data_long %>%
-      filter(condition %in% input$conditions_to_display) %>%
-      filter(Accession %in% filtered_meta()$Accession)
+      dplyr::filter(condition %in% input$conditions_to_display) %>%
+      dplyr::filter(Accession %in% filtered_meta()$Accession)
   })
   
   filtered_chep_dataset <- reactive({
     
     chep_data %>%
-      filter(condition %in% input$conditions_to_display) %>%
-      filter(Majority.protein.IDs %in% filtered_meta()$Majority.protein.IDs)
+      dplyr::filter(condition %in% input$conditions_to_display) %>%
+      dplyr::filter(Majority.protein.IDs %in% filtered_meta()$Majority.protein.IDs)
     
   })
   
   filtered_gene_dataset <- reactive({
 
     genes_long %>%
-      filter(condition %in% input$conditions_to_display) %>%
-      filter(Gene_expr_id %in% filtered_meta()$Gene_expr_id)
+      dplyr::filter(condition %in% input$conditions_to_display) %>%
+      dplyr::filter(Gene_expr_id %in% filtered_meta()$Gene_expr_id)
       
   })
   
@@ -288,13 +285,13 @@ server <- function(input, output, session) {
     #req(filtered_meta()$histone_mark)
     selected_histones <- filtered_meta()$histone_mark
     
-    if(any(str_detect(selected_histones, ","), na.rm = TRUE)){
-      multi_links <- which(str_detect(selected_histones, ","))
+    if(any(stringr::str_detect(selected_histones, ","), na.rm = TRUE)){
+      multi_links <- which(stringr::str_detect(selected_histones, ","))
       multi_genes <- filtered_meta()$Gene_id[multi_links]
       
       histones_to_add <- all_histone_links %>%
-        filter(Gene_id %in% multi_genes) %>%
-        pull(histone_mark)
+        dplyr::filter(Gene_id %in% multi_genes) %>%
+        dplyr::pull(histone_mark)
       
       selected_histones <- selected_histones[-multi_links]
       selected_histones <- c(selected_histones, histones_to_add)
@@ -303,10 +300,10 @@ server <- function(input, output, session) {
     selected_histones <- unique(selected_histones[!is.na(selected_histones)])
 
     histone_data %>%
-      filter(condition %in% input$conditions_to_display) %>%
-      #filter(medium %in% input$histone_media) %>%
-      filter(medium %in% selected_histone_media()) %>%
-      filter(histone_mark %in% selected_histones)
+      dplyr::filter(condition %in% input$conditions_to_display) %>%
+      #dplyr::filter(medium %in% input$histone_media) %>%
+      dplyr::filter(medium %in% selected_histone_media()) %>%
+      dplyr::filter(histone_mark %in% selected_histones)
     
   })
 
@@ -314,49 +311,49 @@ server <- function(input, output, session) {
     
     volcano_ds <- switch(
       input$volcano_type,
-        histones = mutate(
+        histones = dplyr::mutate(
           histone_pval_fc, 
-          selected = if_else(histone_mark %in% filtered_histone_dataset()$histone_mark, "selected", "not")
+          selected = dplyr::if_else(histone_mark %in% filtered_histone_dataset()$histone_mark, "selected", "not")
         ),
-        acid_protein = mutate(
+        acid_protein = dplyr::mutate(
           acid_pval_fc,
-          selected = if_else(Accession %in% filtered_acid_dataset()$Accession, "selected", "not")
+          selected = dplyr::if_else(Accession %in% filtered_acid_dataset()$Accession, "selected", "not")
         ),
-        chr_protein  = mutate(
+        chr_protein  = dplyr::mutate(
           chep_pval_fc,
-          selected = if_else(Majority.protein.IDs %in% filtered_chep_dataset()$Majority.protein.IDs , "selected", "not")
+          selected = dplyr::if_else(Majority.protein.IDs %in% filtered_chep_dataset()$Majority.protein.IDs , "selected", "not")
         ),
-        gene_expr = mutate(
+        gene_expr = dplyr::mutate(
           gene_pval_fc, 
-          selected = if_else(Gene_expr_id %in% filtered_gene_dataset()$Gene_expr_id, "selected", "not")
+          selected = dplyr::if_else(Gene_expr_id %in% filtered_gene_dataset()$Gene_expr_id, "selected", "not")
         )
     )
     
     volcano_ds %>%
-      filter(condition == input$volcano_condition_type)
+      dplyr::filter(condition == input$volcano_condition_type)
   })
   
   volcano_title <- reactive({
-    if_else(input$volcano_type == "histones", "PXGL", "")
+    dplyr::if_else(input$volcano_type == "histones", "PXGL", "")
   })
   
   
   ### volcano plot ----
-  output$volcano <- renderPlotly({
+  output$volcano <- plotly::renderPlotly({
     
     first_col <- colnames(volcano_dataset())[1]
     
     p <- volcano_dataset() %>%
-      ggplot(aes(x = log2fc, y = -log10(pval), key = key(), color = selected, label = Gene_id, text = substr(.data[[first_col]], 1, 15))) +
-      geom_point(shape = 21, stroke = 1, size = 2, fill = "black") +
-      geom_hline(yintercept = -log10(0.05), col = "red", linetype = "dashed") +
-      geom_vline(xintercept = c(-1,1), linetype = "dashed", col = "darkgray") +
-      theme(legend.position = "none") +
-      ggtitle(volcano_title()) +
+      ggplot2::ggplot(ggplot2::aes(x = log2fc, y = -log10(pval), key = key(), color = selected, label = Gene_id, text = substr(.data[[first_col]], 1, 15))) +
+      ggplot2::geom_point(shape = 21, stroke = 1, size = 2, fill = "black") +
+      ggplot2::geom_hline(yintercept = -log10(0.05), col = "red", linetype = "dashed") +
+      ggplot2::geom_vline(xintercept = c(-1,1), linetype = "dashed", col = "darkgray") +
+      ggplot2::theme(legend.position = "none") +
+      ggplot2::ggtitle(volcano_title()) +
       volcano_highlights 
     
     #p <- p + geom_text(nudge_x = 0.5, nudge_y = 0.5, size = 4, fontface = "bold")
-    ggplotly(p, tooltip = c("label", "text"))
+    plotly::ggplotly(p, tooltip = c("label", "text"))
         
     })
     
@@ -364,16 +361,16 @@ server <- function(input, output, session) {
   ### clear selections ---- 
   #### clear all ----  
   observeEvent(input$clear_table, {
-    selectRows(table_proxy, selected = NULL)
+    DT::selectRows(table_proxy, selected = NULL)
     set_ids_to_null()
   })
   
   #### remove selected ----
   observeEvent(input$remove_selected, {
     req(input$selected_table_rows_selected)
-    #filtered_meta(slice(filtered_meta(), -input$selected_table_rows_selected))
-    new_selections <- slice(filtered_meta(), -input$selected_table_rows_selected) %>%
-      pull(rowid)
+    #filtered_meta(dplyr::slice(filtered_meta(), -input$selected_table_rows_selected))
+    new_selections <- dplyr::slice(filtered_meta(), -input$selected_table_rows_selected) %>%
+      dplyr::pull(rowid)
     selectRows(table_proxy, selected = new_selections)
   })
   
@@ -415,7 +412,7 @@ server <- function(input, output, session) {
           selectRows(table_proxy, selected = row_numbers)
         } 
         
-        selected_rows <- slice(table_data, row_numbers)
+        selected_rows <- dplyr::slice(table_data, row_numbers)
         filtered_meta(selected_rows)
         shinyjs::show("remove_selected")
         
@@ -451,15 +448,15 @@ server <- function(input, output, session) {
     
   ## plotly events ----
     
-  observeEvent(event_data("plotly_doubleclick"), {
+  observeEvent(plotly::event_data("plotly_doubleclick"), {
       set_ids_to_null()
   })
   
   ### click - selecting one point at a time ----
   ### update the selected rows on table
-  observeEvent(event_data("plotly_click"), {
+  observeEvent(plotly::event_data("plotly_click"), {
 
-    d <- event_data("plotly_click")
+    d <- plotly::event_data("plotly_click")
     req(d)
     
     if(input$volcano_type == "histones"){
@@ -472,11 +469,11 @@ server <- function(input, output, session) {
       row_no <- as.numeric(d$key)
       
       selected_accessions <- volcano_dataset() %>%
-        slice(row_no) %>%
-        pull(1)
+        dplyr::slice(row_no) %>%
+        dplyr::pull(1)
       
       id_type <- colnames(volcano_dataset())[1]
-      row_to_add <- filter(table_data, .data[[id_type]] == selected_accessions)
+      row_to_add <- dplyr::filter(table_data, .data[[id_type]] == selected_accessions)
   
       if(is.null(filtered_meta())) {
         filtered_meta(row_to_add)
@@ -493,9 +490,9 @@ server <- function(input, output, session) {
   })
 
   # this wipes out other selections at the moment  
-  observeEvent(event_data("plotly_selected"), {
+  observeEvent(plotly::event_data("plotly_selected"), {
    
-    d <- event_data("plotly_selected")
+    d <- plotly::event_data("plotly_selected")
     
     req(d)
     
@@ -519,18 +516,18 @@ server <- function(input, output, session) {
       }
       
       selected_accessions <- volcano_dataset() %>%
-        slice(row_numbers) %>%
-        pull(1)
+        dplyr::slice(row_numbers) %>%
+        dplyr::pull(1)
       
       id_type <- colnames(volcano_dataset())[1]
-      selected_rows <- filter(table_data, .data[[id_type]] %in% selected_accessions)
+      selected_rows <- dplyr::filter(table_data, .data[[id_type]] %in% selected_accessions)
   
       filtered_meta(selected_rows)
     }
   })
 
       
-  observeEvent(event_data("plotly_deselect"), {
+  observeEvent(plotly::event_data("plotly_deselect"), {
     print("none selected")
     filtered_meta(NULL)
   })
@@ -667,10 +664,7 @@ server <- function(input, output, session) {
     }
   })
   
-  
-        
   observeEvent(input$browser, browser())
-    
 }
 
 # Run the application 

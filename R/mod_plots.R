@@ -109,22 +109,22 @@ mod_plotsServer <- function(
     
     ### server plot functions ----
     custom_boxplot <- function(data, title, ylabel = "custom label"){
-      p <- ggplot(data, aes(x = condition, y = value, fill = condition)) +
-        geom_boxplot() +
-        theme(legend.position = "none") + 
-        xlab("") +
+      p <- ggplot2::ggplot(data, ggplot2::aes(x = condition, y = value, fill = condition)) +
+        ggplot2::geom_boxplot() +
+        ggplot2::theme(legend.position = "none") + 
+        ggplot2::xlab("") +
         col_scale +
-        ggtitle(title) +
-        ylab(ylabel)
+        ggplot2::ggtitle(title) +
+        ggplot2::ylab(ylabel)
       
       if(input$common_scale){
-        p + ylim(filtered_data_min_max())
+        p + ggplot2::ylim(filtered_data_min_max())
       } else p
     }
     
     ggplot_object <- function(index, dataset){
-      data_filt <- dataset %>% filter(.[[1]] == selected_ids[index])
-      plot_title <- if_else(is.na(data_filt$Gene_id[1]), data_filt[[1]][1], data_filt$Gene_id[1])  
+      data_filt <- dataset %>% dplyr::filter(.[[1]] == selected_ids[index])
+      plot_title <- dplyr::if_else(is.na(data_filt$Gene_id[1]), data_filt[[1]][1], data_filt$Gene_id[1])  
       custom_boxplot(data_filt, title = plot_title, ylabel = ylabel)
     }
     
@@ -158,7 +158,7 @@ mod_plotsServer <- function(
         grobs = plot_list, 
         nrow = 2,
         #nrow = ceiling(n_plots / 2), 
-        ncol = 2, #if_else(n_plots == 1, 1, 2),
+        ncol = 2, #dplyr::if_else(n_plots == 1, 1, 2),
         layout_matrix = t(matrix(1:4, nrow= 2, ncol = 2))
       )
     })

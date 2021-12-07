@@ -41,12 +41,12 @@ mod_histone_plotsServer <- function(id, data_long, panel_name, ylabel) {
       `Naive+PRC2i`  = "#C8E5B0", 
       `Primed+PRC2i` = "#B5D7EF"
     )
-    col_scale <- scale_fill_manual(name = "condition", values = custom_plot_colours)
+    col_scale <- ggplot2::scale_fill_manual(name = "condition", values = custom_plot_colours)
     
     observeEvent(input$browser, browser())
     
     plot_height <- reactive({
-      n <- n_distinct(data_long()$histone_mark)
+      n <- dplyr::n_distinct(data_long()$histone_mark)
       if(n == 3) 200
       else {
         width <- ceiling(sqrt(n))
@@ -55,7 +55,7 @@ mod_histone_plotsServer <- function(id, data_long, panel_name, ylabel) {
     })
 
     plot_width <- reactive({
-      n <- n_distinct(data_long()$histone_mark)
+      n <- dplyr::n_distinct(data_long()$histone_mark)
       if(n == 1) 350
       else "auto"
     })
@@ -85,13 +85,13 @@ mod_histone_plotsServer <- function(id, data_long, panel_name, ylabel) {
     plot_object <- reactive({
       if(nrow(data_long()) == 0) return (NULL)
       data_long() %>%
-        ggplot(aes(x = condition, y = value, fill = condition, colour = medium)) +
-        geom_boxplot(lwd = 1.2, fatten = 0.5) +
-        scale_colour_manual(values = c("black", "red4", "blue4")) +
+        ggplot2::ggplot(ggplot2::aes(x = condition, y = value, fill = condition, colour = medium)) +
+        ggplot2::geom_boxplot(lwd = 1.2, fatten = 0.5) +
+        ggplot2::scale_colour_manual(values = c("black", "red4", "blue4")) +
         col_scale +
-        ylab("normalised_abundance") +
-        guides(fill = "none") +
-        facet_wrap(~histone_mark, scales = y_scale())
+        ggplot2::ylab("normalised_abundance") +
+        ggplot2::guides(fill = "none") +
+        ggplot2::facet_wrap(~histone_mark, scales = y_scale())
     })
     
     output$facet_plot <- renderPlot({
