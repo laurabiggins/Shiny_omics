@@ -53,8 +53,7 @@ ui <- fluidPage(
   ## Title panel ----
   wellPanel(id = "title_section", 
     titlePanel("Chromatin and histone proteomics of human pluripotent states"),
-    h3("Integrated Multi-Omics Analyses Reveal Polycomb Repressive Complex 2
-  Restricts Naive Human Pluripotent Stem Cell to Trophoblast Fate Induction"),
+    h3("Integrated Multi-Omics Reveal Polycomb Repressive Complex 2 Restricts Human Trophoblast Induction"),
     h4("Zijlmans, Talon, Verhelst, Bendall et al.")
   ),
   ## table and volcano panel ----
