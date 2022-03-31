@@ -4,3 +4,4 @@ Shiny application that allows the exploration of datasets associated with the pa
 
 The app is hosted [here](https://www.bioinformatics.babraham.ac.uk/shiny/shiny_omics/Shiny_omics/). 
 
+![shiny app screenshot](app_screenshot.png)
